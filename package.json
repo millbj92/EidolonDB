@@ -1,0 +1,31 @@
+{
+  "name": "eidolondb",
+  "version": "0.1.0",
+  "description": "AI-native memory database and context engine",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @eidolondb/server dev",
+    "build": "pnpm --filter @eidolondb/server build",
+    "start": "pnpm --filter @eidolondb/server start",
+    "db:generate": "pnpm --filter @eidolondb/server db:generate",
+    "db:migrate": "pnpm --filter @eidolondb/server db:migrate",
+    "db:push": "pnpm --filter @eidolondb/server db:push",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint"
+  },
+  "keywords": [
+    "ai",
+    "memory",
+    "database",
+    "llm",
+    "vector",
+    "embeddings"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@9.14.2",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

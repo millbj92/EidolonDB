@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: eidolondb-postgres
+    environment:
+      POSTGRES_USER: eidolon
+      POSTGRES_PASSWORD: eidolon
+      POSTGRES_DB: eidolondb
+    ports:
+      - "5492:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eidolon -d eidolondb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: eidolondb-server
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://eidolon:eidolon@postgres:5432/eidolondb
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../apps/server/src:/app/apps/server/src
+    command: pnpm dev
+
+volumes:
+  postgres_data:
