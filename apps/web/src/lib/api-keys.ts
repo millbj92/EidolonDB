@@ -11,7 +11,7 @@ export async function generateApiKey(): Promise<GeneratedApiKey> {
   const raw = crypto.randomBytes(16).toString('hex');
   const fullKey = `eid_live_${raw}`;
   const keyHash = await bcrypt.hash(fullKey, 10);
-  const keyPrefix = `${fullKey.slice(0, 16)}...`;
+  const keyPrefix = fullKey.slice(0, 16);
 
   return { fullKey, keyHash, keyPrefix };
 }
