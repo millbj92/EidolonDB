@@ -67,10 +67,13 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ message: 'No email available on user.created event.' }, { status: 400 });
   }
 
-  await db.insert(users).values({ clerkId: event.data.id, email }).onConflictDoNothing();
+  const upserted = await db
+    .insert(users)
+    .values({ clerkId: event.data.id, email })
+    .onConflictDoUpdate({ target: users.clerkId, set: { email } })
+    .returning();
 
-  const userRow = await db.select().from(users).where(eq(users.clerkId, event.data.id)).limit(1);
-  const userRecord = userRow[0];
+  const userRecord = upserted[0];
   if (!userRecord) {
     return Response.json({ message: 'Failed to locate user record after upsert.' }, { status: 500 });
   }
