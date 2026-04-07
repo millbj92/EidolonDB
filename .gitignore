@@ -5,17 +5,23 @@ node_modules/
 # Build output
 dist/
 build/
+.next/
+.vitepress/dist/
+.vitepress/cache/
 
 # Environment
 .env
 .env.local
 .env.*.local
+.env.production
 
 # Logs
 logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # IDE
 .idea/
@@ -30,8 +36,32 @@ Thumbs.db
 
 # Test coverage
 coverage/
+.nyc_output/
 
 # Temporary files
 tmp/
 temp/
 *.tmp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# Eval results (don't commit test run data)
+eval/results/*.json
+eval/results/history.jsonl
+!eval/results/.gitkeep
+
+# Docker
+infra/postgres-data/
+
+# Railway / deployment
+.railway/
