@@ -42,6 +42,8 @@ export const memoryQuerySchema = z.object({
   // Vector search
   text: z.string().min(1).optional(),
   k: z.number().min(1).max(100).optional().default(10),
+  sessionId: z.string().optional(),
+  actorId: z.string().optional(),
 
   // Filters
   ownerEntityId: z.string().uuid().optional(),

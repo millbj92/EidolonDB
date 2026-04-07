@@ -15,6 +15,13 @@
       "when": 1775581476123,
       "tag": "0001_chunky_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775588090954,
+      "tag": "0002_smart_mattie_franklin",
+      "breakpoints": true
     }
   ]
 }

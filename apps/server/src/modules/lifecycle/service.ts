@@ -111,6 +111,7 @@ export async function runLifecycle(
   for (const memory of allMemories) {
     const ageMs = now.getTime() - memory.createdAt.getTime();
     const accessCount = memory.accessCount ?? 0;
+    const retrievalCount = memory.retrievalCount ?? 0;
     const importanceScore = memory.importanceScore ?? 0.5;
 
     try {
@@ -200,7 +201,12 @@ export async function runLifecycle(
         if (
           ageMs > rules.episodic.distillAfterMs &&
           importanceScore >= rules.episodic.distillIfImportance &&
-          accessCount >= rules.episodic.distillIfAccessCount
+          (
+            accessCount >= rules.episodic.distillIfAccessCount ||
+            // Retrieval signals that memory was surfaced by search even without explicit access.
+            // It's weaker than access, but still indicates potential usefulness.
+            retrievalCount >= 3
+          )
         ) {
           let distillation: Awaited<ReturnType<typeof distillEpisodicMemory>>;
           try {

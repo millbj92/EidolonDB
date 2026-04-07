@@ -49,6 +49,8 @@ export interface MemoryQueryWeights {
 
 export interface SearchMemoriesOptions {
   k?: number;
+  sessionId?: string;
+  actorId?: string;
   ownerEntityId?: string;
   tiers?: MemoryTier[];
   tags?: string[];
@@ -97,6 +99,20 @@ export interface MemoryStatsResponse {
     date: string;
     count: number;
   }>;
+}
+
+export interface MarkUsedResponse {
+  updated: number;
+  memoryIds: string[];
+}
+
+export interface RetrievalStatsResponse {
+  memoryId: string;
+  retrievalCount: number;
+  usageCount: number;
+  avgRelevanceFeedback: number | null;
+  avgRetrievalScore: number | null;
+  lastRetrievedAt: string | null;
 }
 
 export interface CandidateMemory {

@@ -7,6 +7,7 @@ import {
   updateMemory,
   deleteMemory,
   recordMemoryAccess,
+  recordMemoryRetrievals,
   getMemoryStats,
 } from './service.js';
 import { OpenAIEmbeddingsProvider } from '../../common/embeddings/index.js';
@@ -79,6 +80,18 @@ export async function memoriesRoutes(fastify: FastifyInstance) {
       }
 
       const results = await queryMemories(tenantId, input, { embeddingsProvider });
+
+      void recordMemoryRetrievals(tenantId, {
+        queryText: input.text,
+        sessionId: input.sessionId,
+        actorId: input.actorId,
+        retrievals: results.map((result) => ({
+          memoryId: result.memory.id,
+          retrievalScore: result.score,
+        })),
+      }).catch((error: unknown) => {
+        fastify.log.warn({ err: error, tenantId }, 'Failed to record memory retrieval events');
+      });
 
       return reply.status(200).send({
         data: {

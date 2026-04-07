@@ -79,7 +79,9 @@ export const memories = pgTable('memories', {
   importanceScore: real('importance_score').default(0.5),
   recencyScore: real('recency_score').default(1.0),
   accessCount: integer('access_count').default(0),
+  retrievalCount: integer('retrieval_count').default(0),
   lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }),
+  lastRetrievedAt: timestamp('last_retrieved_at', { withTimezone: true }),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
   tags: text('tags').array().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -88,6 +90,25 @@ export const memories = pgTable('memories', {
   index('memories_tenant_id_idx').on(table.tenantId),
   index('memories_owner_entity_id_idx').on(table.ownerEntityId),
   index('memories_tier_idx').on(table.tier),
+]);
+
+// Retrieval events table
+export const retrieval_events = pgTable('retrieval_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  memoryId: uuid('memory_id').notNull().references(() => memories.id, { onDelete: 'cascade' }),
+  queryText: text('query_text'),
+  retrievalScore: real('retrieval_score'),
+  wasUsed: boolean('was_used').default(false),
+  relevanceFeedback: real('relevance_feedback'),
+  sessionId: text('session_id'),
+  actorId: text('actor_id'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('retrieval_events_tenant_id_idx').on(table.tenantId),
+  index('retrieval_events_memory_id_idx').on(table.memoryId),
+  index('retrieval_events_created_at_idx').on(table.createdAt),
 ]);
 
 // Relations table
@@ -182,6 +203,9 @@ export type NewArtifact = typeof artifacts.$inferInsert;
 
 export type Memory = typeof memories.$inferSelect;
 export type NewMemory = typeof memories.$inferInsert;
+
+export type RetrievalEvent = typeof retrieval_events.$inferSelect;
+export type NewRetrievalEvent = typeof retrieval_events.$inferInsert;
 
 export type Embedding = typeof embeddings.$inferSelect;
 export type NewEmbedding = typeof embeddings.$inferInsert;

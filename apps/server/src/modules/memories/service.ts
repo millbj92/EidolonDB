@@ -1,5 +1,14 @@
 import { eq, and, inArray, gte, lte, sql, desc, asc } from 'drizzle-orm';
-import { db, memories, embeddings, type Memory, type NewMemory, type NewEmbedding } from '../../common/db/index.js';
+import {
+  db,
+  memories,
+  embeddings,
+  retrieval_events,
+  type Memory,
+  type NewMemory,
+  type NewEmbedding,
+  type NewRetrievalEvent,
+} from '../../common/db/index.js';
 import type { EmbeddingsProvider } from '../../common/embeddings/index.js';
 import type {
   CreateMemoryInput,
@@ -299,6 +308,59 @@ export async function recordMemoryAccess(
   return memory ?? null;
 }
 
+export interface RecordMemoryRetrievalInput {
+  memoryId: string;
+  retrievalScore: number;
+}
+
+export async function recordMemoryRetrievals(
+  tenantId: string,
+  input: {
+    queryText?: string;
+    sessionId?: string;
+    actorId?: string;
+    retrievals: RecordMemoryRetrievalInput[];
+  }
+): Promise<void> {
+  if (input.retrievals.length === 0) {
+    return;
+  }
+
+  const now = new Date();
+  const events: NewRetrievalEvent[] = input.retrievals.map((retrieval) => ({
+    tenantId,
+    memoryId: retrieval.memoryId,
+    queryText: input.queryText ?? null,
+    retrievalScore: retrieval.retrievalScore,
+    sessionId: input.sessionId ?? null,
+    actorId: input.actorId ?? null,
+    metadata: {},
+  }));
+
+  await db.insert(retrieval_events).values(events);
+
+  const retrievalCountByMemoryId = new Map<string, number>();
+  for (const retrieval of input.retrievals) {
+    retrievalCountByMemoryId.set(
+      retrieval.memoryId,
+      (retrievalCountByMemoryId.get(retrieval.memoryId) ?? 0) + 1
+    );
+  }
+
+  await Promise.all(
+    [...retrievalCountByMemoryId.entries()].map(async ([memoryId, count]) => {
+      await db
+        .update(memories)
+        .set({
+          retrievalCount: sql`${memories.retrievalCount} + ${count}`,
+          lastRetrievedAt: now,
+          updatedAt: now,
+        })
+        .where(and(eq(memories.id, memoryId), eq(memories.tenantId, tenantId)));
+    })
+  );
+}
+
 export async function getMemoryStats(
   tenantId: string
 ): Promise<MemoryStatsResponse> {
@@ -566,7 +628,9 @@ function rowToMemory(row: Record<string, unknown>): Memory {
     importanceScore: row['importance_score'] != null ? Number(row['importance_score']) : null,
     recencyScore: row['recency_score'] != null ? Number(row['recency_score']) : null,
     accessCount: row['access_count'] != null ? Number(row['access_count']) : null,
+    retrievalCount: row['retrieval_count'] != null ? Number(row['retrieval_count']) : null,
     lastAccessedAt: row['last_accessed_at'] ? new Date(String(row['last_accessed_at'])) : null,
+    lastRetrievedAt: row['last_retrieved_at'] ? new Date(String(row['last_retrieved_at'])) : null,
     metadata: (row['metadata'] as Record<string, unknown>) ?? {},
     tags: (row['tags'] as string[]) ?? [],
     createdAt: new Date(String(row['created_at'])),

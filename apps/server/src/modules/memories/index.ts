@@ -8,11 +8,13 @@ export {
   updateMemory,
   deleteMemory,
   recordMemoryAccess,
+  recordMemoryRetrievals,
   getMemoryStats,
   type MemoryWithEmbedding,
   type CreateMemoryOptions,
   type QueryMemoriesOptions,
   type ListMemoriesResult,
+  type RecordMemoryRetrievalInput,
 } from './service.js';
 export {
   createMemorySchema,

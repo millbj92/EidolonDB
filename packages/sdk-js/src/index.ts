@@ -16,6 +16,7 @@ import { IngestResource } from './resources/ingest.js';
 import { LifecycleResource } from './resources/lifecycle.js';
 import { MemoriesResource } from './resources/memories.js';
 import { RelationsResource } from './resources/relations.js';
+import { FeedbackResource } from './resources/feedback.js';
 
 export { EidolonDBClient, EidolonDBError, type EidolonDBConfig } from './client.js';
 export * from './types.js';
@@ -27,6 +28,7 @@ export { EventsResource } from './resources/events.js';
 export { ContextResource } from './resources/context.js';
 export { LifecycleResource } from './resources/lifecycle.js';
 export { IngestResource } from './resources/ingest.js';
+export { FeedbackResource } from './resources/feedback.js';
 
 export class EidolonDB {
   readonly memories: MemoriesResource;
@@ -36,6 +38,7 @@ export class EidolonDB {
   readonly events: EventsResource;
   readonly context: ContextResource;
   readonly lifecycle: LifecycleResource;
+  readonly feedback: FeedbackResource;
   private readonly _ingest: IngestResource;
 
   constructor(config: EidolonDBConfig) {
@@ -47,6 +50,7 @@ export class EidolonDB {
     this.events = new EventsResource(client);
     this.context = new ContextResource(client);
     this.lifecycle = new LifecycleResource(client);
+    this.feedback = new FeedbackResource(client);
     this._ingest = new IngestResource(client);
   }
 

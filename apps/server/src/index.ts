@@ -11,6 +11,7 @@ import { relationsRoutes } from './modules/relations/index.js';
 import { eventsRoutes } from './modules/events/index.js';
 import { ingestRoutes } from './modules/ingest/index.js';
 import { lifecycleRoutes } from './modules/lifecycle/index.js';
+import { feedbackRoutes } from './modules/feedback/index.js';
 
 async function main() {
   const fastify = Fastify({
@@ -34,6 +35,7 @@ async function main() {
   await fastify.register(eventsRoutes);
   await fastify.register(ingestRoutes);
   await fastify.register(lifecycleRoutes);
+  await fastify.register(feedbackRoutes);
 
   // Global error handler
   fastify.setErrorHandler((error: Error, _request, reply) => {
