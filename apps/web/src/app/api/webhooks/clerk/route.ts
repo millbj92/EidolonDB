@@ -62,6 +62,19 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ ok: true });
   }
 
+  try {
+    return await handleUserCreated(event);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error('Webhook handler threw:', message, stack);
+    return Response.json({ message: `Webhook handler error: ${message}` }, { status: 500 });
+  }
+}
+
+async function handleUserCreated(event: WebhookEvent): Promise<Response> {
+  if (!db) return Response.json({ message: 'DB not configured' }, { status: 503 });
+
   const email = getPrimaryEmail(event);
   if (!email) {
     return Response.json({ message: 'No email available on user.created event.' }, { status: 400 });
