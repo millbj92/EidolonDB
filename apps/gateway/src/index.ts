@@ -132,6 +132,10 @@ fastify.addHook('preHandler', async (request, reply) => {
     return;
   }
 
+  if (!env.DATABASE_URL) {
+    return sendError(reply, 503, 'Auth database not configured', 'INTERNAL_ERROR', request.id);
+  }
+
   const rawApiKey = extractRawApiKey(request.headers.authorization);
   if (!rawApiKey) {
     return sendError(reply, 401, 'API key required', 'UNAUTHORIZED', request.id);
