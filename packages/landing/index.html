@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EidolonDB - Self-managing memory for AI agents</title>
+    <meta
+      name="description"
+      content="EidolonDB is self-managing memory for AI agents: automatic extraction, tier evolution, and hybrid recall."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <div class="brand">EidolonDB</div>
+        <nav class="nav">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#evals">Evals</a>
+          <a href="#start">Get started</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero container">
+        <p class="eyebrow">Self-managing memory for AI agents</p>
+        <h1>EidolonDB</h1>
+        <p class="lead">Self-managing memory for AI agents.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://github.com/eidolondb/eidolondb">Get Started →</a>
+          <a class="btn" href="/guide/getting-started">View Docs →</a>
+          <a class="btn" href="https://github.com/eidolondb/eidolondb">GitHub →</a>
+        </div>
+        <p class="sub">Memory that extracts itself. Evolves itself. Stays useful.</p>
+      </section>
+
+      <section class="section container" id="problem">
+        <h2>The problem</h2>
+        <div class="problem-list">
+          <p>Vector DBs store whatever you give them. You have to figure out what matters.</p>
+          <p>Agents forget everything between sessions. Context window isn't memory.</p>
+          <p>Memory bloat is real. Low-signal storage degrades retrieval quality.</p>
+        </div>
+      </section>
+
+      <section class="section container" id="how">
+        <h2>How it works</h2>
+        <div class="steps">
+          <article class="step">
+            <span>Step 1</span>
+            <h3>Ingest</h3>
+            <p>Feed raw text. EidolonDB extracts what is worth remembering.</p>
+          </article>
+          <article class="step">
+            <span>Step 2</span>
+            <h3>Evolve</h3>
+            <p>short_term becomes episodic, episodic distills to semantic. Noise decays.</p>
+          </article>
+          <article class="step">
+            <span>Step 3</span>
+            <h3>Recall</h3>
+            <p>Hybrid search surfaces the right memories at the right time.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section container" id="code">
+        <h2>Code</h2>
+        <pre class="code-block"><code><span class="k">import</span> <span class="p">{</span> <span class="t">EidolonDB</span> <span class="p">}</span> <span class="k">from</span> <span class="s">'@eidolondb/client'</span><span class="p">;</span>
+
+<span class="k">const</span> <span class="v">db</span> <span class="p">=</span> <span class="k">new</span> <span class="t">EidolonDB</span><span class="p">({</span> <span class="v">url</span><span class="p">:</span> <span class="s">'http://localhost:3000'</span><span class="p">,</span> <span class="v">tenant</span><span class="p">:</span> <span class="s">'my-app'</span> <span class="p">});</span>
+
+<span class="c">// Memory that extracts itself</span>
+<span class="k">await</span> <span class="v">db</span><span class="p">.</span><span class="v">ingest</span><span class="p">(</span><span class="s">"Today we decided on Fastify for the API. Port 4000. Jordan leads backend."</span><span class="p">);</span>
+
+<span class="c">// Recall across sessions</span>
+<span class="k">const</span> <span class="v">context</span> <span class="p">=</span> <span class="k">await</span> <span class="v">db</span><span class="p">.</span><span class="v">recall</span><span class="p">(</span><span class="s">"project decisions"</span><span class="p">);</span>
+<span class="c">// → ["We're using Fastify on port 4000", "Jordan leads backend development"]</span></code></pre>
+      </section>
+
+      <section class="section container" id="evals">
+        <h2>Eval results</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Without EidolonDB</th>
+                <th>With EidolonDB</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Recall accuracy</td>
+                <td>10%</td>
+                <td class="good">100%</td>
+              </tr>
+              <tr>
+                <td>Hallucinations</td>
+                <td>1</td>
+                <td class="good">0</td>
+              </tr>
+              <tr>
+                <td>Overall score</td>
+                <td>6%</td>
+                <td class="good">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section container" id="features">
+        <h2>Features</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Auto-Extraction</h3>
+            <p>LLM extracts structured memories from raw text.</p>
+          </article>
+          <article class="card">
+            <h3>Tier System</h3>
+            <p>short_term / episodic / semantic with automatic lifecycle.</p>
+          </article>
+          <article class="card">
+            <h3>LLM Distillation</h3>
+            <p>Episodic memories condense into lasting semantic knowledge.</p>
+          </article>
+          <article class="card">
+            <h3>Hybrid Search</h3>
+            <p>Vector + recency + importance scoring.</p>
+          </article>
+          <article class="card">
+            <h3>Deduplication</h3>
+            <p>First-pass Jaccard + vector similarity dedup.</p>
+          </article>
+          <article class="card">
+            <h3>Full API + SDK</h3>
+            <p>REST API, TypeScript SDK, zero-dependency.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section container cta" id="start">
+        <h2>Get started</h2>
+        <pre class="install"><code>npm install @eidolondb/client</code></pre>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/guide/getting-started">Read the docs →</a>
+          <a class="btn" href="/self-hosting">Self-host →</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <p>EidolonDB - MIT License</p>
+        <div class="footer-links">
+          <a href="/guide/getting-started">Docs</a>
+          <a href="https://github.com/eidolondb/eidolondb">GitHub</a>
+          <a href="/self-hosting">Self-hosting</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
