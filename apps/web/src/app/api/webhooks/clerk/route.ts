@@ -81,9 +81,10 @@ async function handleUserCreated(event: WebhookEvent): Promise<Response> {
   }
 
   // Insert or ignore if already exists, then fetch the row
+  // Upsert on clerk_id — never overwrite clerk_id based on email match
   await db.execute(
     sql`INSERT INTO users (clerk_id, email) VALUES (${event.data.id}, ${email!})
-        ON CONFLICT (email) DO UPDATE SET clerk_id = EXCLUDED.clerk_id`
+        ON CONFLICT (clerk_id) DO UPDATE SET email = EXCLUDED.email`
   );
 
   const userRows = await db.execute(
