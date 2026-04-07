@@ -11,6 +11,7 @@ import { relationsRoutes } from './modules/relations/index.js';
 import { eventsRoutes } from './modules/events/index.js';
 import { ingestRoutes } from './modules/ingest/index.js';
 import { lifecycleRoutes } from './modules/lifecycle/index.js';
+import { scheduleLifecycle } from './modules/lifecycle/scheduler.js';
 import { feedbackRoutes } from './modules/feedback/index.js';
 
 async function main() {
@@ -64,6 +65,9 @@ async function main() {
   try {
     await fastify.listen({ port: env.PORT, host: env.HOST });
     fastify.log.info(`EidolonDB server listening on ${env.HOST}:${env.PORT}`);
+
+    // Start daily lifecycle scheduler (runs at 2:00 AM UTC for all tenants)
+    scheduleLifecycle(fastify.log);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
