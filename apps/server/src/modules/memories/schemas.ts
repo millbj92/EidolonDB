@@ -87,3 +87,46 @@ export const memoryQueryResponseSchema = z.object({
 });
 
 export type MemoryQueryResponse = z.infer<typeof memoryQueryResponseSchema>;
+
+export const listMemoriesQuerySchema = z.object({
+  offset: z.coerce.number().min(0).optional().default(0),
+  limit: z.coerce.number().min(1).max(100).optional().default(20),
+  tier: memoryTierSchema.optional(),
+  tag: z.string().min(1).optional(),
+  ownerEntityId: z.string().uuid().optional(),
+  sortBy: z.enum(['createdAt', 'importanceScore', 'accessCount']).optional().default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+});
+
+export type ListMemoriesQueryInput = z.infer<typeof listMemoriesQuerySchema>;
+
+export const updateMemorySchema = z
+  .object({
+    content: z.string().min(1).optional(),
+    tier: memoryTierSchema.optional(),
+    importanceScore: z.number().min(0).max(1).optional(),
+    tags: z.array(z.string()).optional(),
+    metadata: z.record(z.unknown()).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export type UpdateMemoryInput = z.infer<typeof updateMemorySchema>;
+
+export const memoryStatsResponseSchema = z.object({
+  total: z.number(),
+  byTier: z.object({
+    episodic: z.number(),
+    semantic: z.number(),
+    short_term: z.number(),
+  }),
+  byDay: z.array(
+    z.object({
+      date: z.string(),
+      count: z.number(),
+    })
+  ),
+});
+
+export type MemoryStatsResponse = z.infer<typeof memoryStatsResponseSchema>;

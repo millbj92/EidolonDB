@@ -22,13 +22,13 @@ services:
       context: ..
       dockerfile: infra/Dockerfile
     container_name: eidolondb-server
+    network_mode: host
     environment:
       NODE_ENV: development
       PORT: 3000
       HOST: 0.0.0.0
-      DATABASE_URL: postgresql://eidolon:eidolon@postgres:5432/eidolondb
-    ports:
-      - "3000:3000"
+      DATABASE_URL: postgresql://eidolon:eidolon@localhost:5492/eidolondb
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy

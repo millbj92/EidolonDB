@@ -1,6 +1,14 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { memoryQuerySchema } from './schemas.js';
-import { queryMemories, getMemoryById } from './service.js';
+import { listMemoriesQuerySchema, memoryQuerySchema, updateMemorySchema } from './schemas.js';
+import {
+  queryMemories,
+  getMemoryById,
+  listMemories,
+  updateMemory,
+  deleteMemory,
+  recordMemoryAccess,
+  getMemoryStats,
+} from './service.js';
 import { OpenAIEmbeddingsProvider } from '../../common/embeddings/index.js';
 import { env } from '../../common/config/index.js';
 
@@ -13,6 +21,51 @@ function getTenantId(request: FastifyRequest): string {
 }
 
 export async function memoriesRoutes(fastify: FastifyInstance) {
+  // List memories (paginated)
+  fastify.get('/memories', async (request, reply) => {
+    try {
+      const tenantId = getTenantId(request);
+      const query = listMemoriesQuerySchema.parse(request.query);
+      const result = await listMemories(tenantId, query);
+
+      return reply.status(200).send({
+        data: {
+          memories: result.memories.map((memory) => ({
+            id: memory.id,
+            tenantId: memory.tenantId,
+            ownerEntityId: memory.ownerEntityId,
+            tier: memory.tier,
+            content: memory.content,
+            sourceArtifactId: memory.sourceArtifactId,
+            sourceEventId: memory.sourceEventId,
+            embeddingId: memory.embeddingId,
+            importanceScore: memory.importanceScore,
+            recencyScore: memory.recencyScore,
+            accessCount: memory.accessCount,
+            lastAccessedAt: memory.lastAccessedAt?.toISOString() ?? null,
+            metadata: memory.metadata ?? {},
+            tags: memory.tags ?? [],
+            createdAt: memory.createdAt.toISOString(),
+            updatedAt: memory.updatedAt.toISOString(),
+          })),
+          total: result.total,
+          offset: result.offset,
+          limit: result.limit,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'x-tenant-id header is required') {
+        return reply.status(400).send({
+          error: {
+            code: 'MISSING_TENANT_ID',
+            message: error.message,
+          },
+        });
+      }
+      throw error;
+    }
+  });
+
   // Query memories
   fastify.post('/memories/query', async (request, reply) => {
     try {
@@ -49,12 +102,162 @@ export async function memoriesRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Aggregate memory stats
+  fastify.get('/memories/stats', async (request, reply) => {
+    try {
+      const tenantId = getTenantId(request);
+      const stats = await getMemoryStats(tenantId);
+      return reply.status(200).send({ data: stats });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'x-tenant-id header is required') {
+        return reply.status(400).send({
+          error: {
+            code: 'MISSING_TENANT_ID',
+            message: error.message,
+          },
+        });
+      }
+      throw error;
+    }
+  });
+
   // Get memory by ID
   fastify.get<{ Params: { id: string } }>('/memories/:id', async (request, reply) => {
     try {
       const tenantId = getTenantId(request);
       const { id } = request.params;
       const memory = await getMemoryById(tenantId, id);
+
+      if (!memory) {
+        return reply.status(404).send({
+          error: {
+            code: 'NOT_FOUND',
+            message: `Memory with id ${id} not found`,
+          },
+        });
+      }
+
+      return reply.status(200).send({
+        data: {
+          id: memory.id,
+          tenantId: memory.tenantId,
+          ownerEntityId: memory.ownerEntityId,
+          tier: memory.tier,
+          content: memory.content,
+          sourceArtifactId: memory.sourceArtifactId,
+          sourceEventId: memory.sourceEventId,
+          embeddingId: memory.embeddingId,
+          importanceScore: memory.importanceScore,
+          recencyScore: memory.recencyScore,
+          accessCount: memory.accessCount,
+          lastAccessedAt: memory.lastAccessedAt?.toISOString() ?? null,
+          metadata: memory.metadata ?? {},
+          tags: memory.tags ?? [],
+          createdAt: memory.createdAt.toISOString(),
+          updatedAt: memory.updatedAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'x-tenant-id header is required') {
+        return reply.status(400).send({
+          error: {
+            code: 'MISSING_TENANT_ID',
+            message: error.message,
+          },
+        });
+      }
+      throw error;
+    }
+  });
+
+  // Update memory
+  fastify.patch<{ Params: { id: string } }>('/memories/:id', async (request, reply) => {
+    try {
+      const tenantId = getTenantId(request);
+      const { id } = request.params;
+      const input = updateMemorySchema.parse(request.body);
+      const memory = await updateMemory(tenantId, id, input);
+
+      if (!memory) {
+        return reply.status(404).send({
+          error: {
+            code: 'NOT_FOUND',
+            message: `Memory with id ${id} not found`,
+          },
+        });
+      }
+
+      return reply.status(200).send({
+        data: {
+          id: memory.id,
+          tenantId: memory.tenantId,
+          ownerEntityId: memory.ownerEntityId,
+          tier: memory.tier,
+          content: memory.content,
+          sourceArtifactId: memory.sourceArtifactId,
+          sourceEventId: memory.sourceEventId,
+          embeddingId: memory.embeddingId,
+          importanceScore: memory.importanceScore,
+          recencyScore: memory.recencyScore,
+          accessCount: memory.accessCount,
+          lastAccessedAt: memory.lastAccessedAt?.toISOString() ?? null,
+          metadata: memory.metadata ?? {},
+          tags: memory.tags ?? [],
+          createdAt: memory.createdAt.toISOString(),
+          updatedAt: memory.updatedAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'x-tenant-id header is required') {
+        return reply.status(400).send({
+          error: {
+            code: 'MISSING_TENANT_ID',
+            message: error.message,
+          },
+        });
+      }
+      throw error;
+    }
+  });
+
+  // Delete memory
+  fastify.delete<{ Params: { id: string } }>('/memories/:id', async (request, reply) => {
+    try {
+      const tenantId = getTenantId(request);
+      const { id } = request.params;
+      const deleted = await deleteMemory(tenantId, id);
+
+      if (!deleted) {
+        return reply.status(404).send({
+          error: {
+            code: 'NOT_FOUND',
+            message: `Memory with id ${id} not found`,
+          },
+        });
+      }
+
+      return reply.status(200).send({
+        data: { deleted: true },
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'x-tenant-id header is required') {
+        return reply.status(400).send({
+          error: {
+            code: 'MISSING_TENANT_ID',
+            message: error.message,
+          },
+        });
+      }
+      throw error;
+    }
+  });
+
+  // Record memory access
+  fastify.post<{ Params: { id: string } }>('/memories/:id/access', async (request, reply) => {
+    try {
+      const tenantId = getTenantId(request);
+      const { id } = request.params;
+      const memory = await recordMemoryAccess(tenantId, id);
 
       if (!memory) {
         return reply.status(404).send({

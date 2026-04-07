@@ -1,7 +1,15 @@
-import { eq, and, inArray, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, inArray, gte, lte, sql, desc, asc } from 'drizzle-orm';
 import { db, memories, embeddings, type Memory, type NewMemory, type NewEmbedding } from '../../common/db/index.js';
 import type { EmbeddingsProvider } from '../../common/embeddings/index.js';
-import type { CreateMemoryInput, MemoryQueryInput, MemoryQueryResult, MemoryTier } from './schemas.js';
+import type {
+  CreateMemoryInput,
+  MemoryQueryInput,
+  MemoryQueryResult,
+  MemoryTier,
+  ListMemoriesQueryInput,
+  UpdateMemoryInput,
+  MemoryStatsResponse,
+} from './schemas.js';
 
 export interface CreateMemoryOptions {
   generateEmbedding?: boolean;
@@ -165,6 +173,186 @@ export async function getMemoryById(
     .limit(1);
 
   return memory ?? null;
+}
+
+export interface ListMemoriesResult {
+  memories: Memory[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export async function listMemories(
+  tenantId: string,
+  input: ListMemoriesQueryInput
+): Promise<ListMemoriesResult> {
+  const { offset, limit, tier, tag, ownerEntityId, sortBy, sortOrder } = input;
+  const conditions = [eq(memories.tenantId, tenantId)];
+
+  if (tier) {
+    conditions.push(eq(memories.tier, tier));
+  }
+  if (ownerEntityId) {
+    conditions.push(eq(memories.ownerEntityId, ownerEntityId));
+  }
+  if (tag) {
+    conditions.push(sql`array_position(${memories.tags}, ${tag}) IS NOT NULL`);
+  }
+
+  const whereClause = and(...conditions);
+  const orderFn = sortOrder === 'asc' ? asc : desc;
+  const sortColumn =
+    sortBy === 'importanceScore'
+      ? memories.importanceScore
+      : sortBy === 'accessCount'
+        ? memories.accessCount
+        : memories.createdAt;
+
+  const [totalRow] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+    })
+    .from(memories)
+    .where(whereClause);
+
+  const memoryRows = await db
+    .select()
+    .from(memories)
+    .where(whereClause)
+    .orderBy(orderFn(sortColumn), desc(memories.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    memories: memoryRows,
+    total: Number(totalRow?.count ?? 0),
+    offset,
+    limit,
+  };
+}
+
+export async function updateMemory(
+  tenantId: string,
+  id: string,
+  input: UpdateMemoryInput
+): Promise<Memory | null> {
+  const [memory] = await db
+    .update(memories)
+    .set({
+      content: input.content,
+      tier: input.tier,
+      importanceScore: input.importanceScore,
+      tags: input.tags,
+      metadata: input.metadata,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(memories.id, id), eq(memories.tenantId, tenantId)))
+    .returning();
+
+  return memory ?? null;
+}
+
+export async function deleteMemory(
+  tenantId: string,
+  id: string
+): Promise<boolean> {
+  const [memory] = await db
+    .select({
+      id: memories.id,
+      embeddingId: memories.embeddingId,
+    })
+    .from(memories)
+    .where(and(eq(memories.id, id), eq(memories.tenantId, tenantId)))
+    .limit(1);
+
+  if (!memory) {
+    return false;
+  }
+
+  await db
+    .delete(memories)
+    .where(and(eq(memories.id, id), eq(memories.tenantId, tenantId)));
+
+  if (memory.embeddingId) {
+    await db
+      .delete(embeddings)
+      .where(and(eq(embeddings.id, memory.embeddingId), eq(embeddings.tenantId, tenantId)));
+  }
+
+  return true;
+}
+
+export async function recordMemoryAccess(
+  tenantId: string,
+  id: string
+): Promise<Memory | null> {
+  const [memory] = await db
+    .update(memories)
+    .set({
+      accessCount: sql`${memories.accessCount} + 1`,
+      lastAccessedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(memories.id, id), eq(memories.tenantId, tenantId)))
+    .returning();
+
+  return memory ?? null;
+}
+
+export async function getMemoryStats(
+  tenantId: string
+): Promise<MemoryStatsResponse> {
+  const totalResult = await db.execute(sql`
+    SELECT COUNT(*)::int AS total
+    FROM memories
+    WHERE tenant_id = ${tenantId}
+  `);
+  const total = Number((totalResult.rows[0] as Record<string, unknown> | undefined)?.['total'] ?? 0);
+
+  const byTierResult = await db.execute(sql`
+    SELECT tier, COUNT(*)::int AS count
+    FROM memories
+    WHERE tenant_id = ${tenantId}
+    GROUP BY tier
+  `);
+
+  const byTier: MemoryStatsResponse['byTier'] = {
+    episodic: 0,
+    semantic: 0,
+    short_term: 0,
+  };
+
+  for (const row of byTierResult.rows as Array<Record<string, unknown>>) {
+    const tier = String(row['tier']);
+    const count = Number(row['count'] ?? 0);
+    if (tier === 'episodic' || tier === 'semantic' || tier === 'short_term') {
+      byTier[tier] = count;
+    }
+  }
+
+  const byDayResult = await db.execute(sql`
+    SELECT
+      TO_CHAR(day_series.day, 'YYYY-MM-DD') AS date,
+      COALESCE(COUNT(m.id), 0)::int AS count
+    FROM generate_series(
+      (CURRENT_DATE - INTERVAL '29 days')::date,
+      CURRENT_DATE::date,
+      INTERVAL '1 day'
+    ) AS day_series(day)
+    LEFT JOIN memories m
+      ON m.tenant_id = ${tenantId}
+      AND m.created_at >= day_series.day
+      AND m.created_at < day_series.day + INTERVAL '1 day'
+    GROUP BY day_series.day
+    ORDER BY day_series.day ASC
+  `);
+
+  const byDay = (byDayResult.rows as Array<Record<string, unknown>>).map((row) => ({
+    date: String(row['date']),
+    count: Number(row['count'] ?? 0),
+  }));
+
+  return { total, byTier, byDay };
 }
 
 export interface QueryMemoriesOptions {

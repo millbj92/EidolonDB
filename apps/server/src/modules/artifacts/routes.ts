@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { createArtifactSchema } from './schemas.js';
-import { createArtifact, getArtifactById } from './service.js';
+import { createArtifact, getArtifactById, deleteArtifactCascade } from './service.js';
 import { chunkText } from '../../common/utils/index.js';
 import { OpenAIEmbeddingsProvider } from '../../common/embeddings/index.js';
 import { createMemoriesBatch, type CreateMemoryInput } from '../memories/index.js';
@@ -143,6 +143,41 @@ export async function artifactsRoutes(fastify: FastifyInstance) {
           tags: artifact.tags ?? [],
           createdAt: artifact.createdAt.toISOString(),
           updatedAt: artifact.updatedAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'x-tenant-id header is required') {
+        return reply.status(400).send({
+          error: {
+            code: 'MISSING_TENANT_ID',
+            message: error.message,
+          },
+        });
+      }
+      throw error;
+    }
+  });
+
+  // Delete artifact with cascade cleanup
+  fastify.delete<{ Params: { id: string } }>('/artifacts/:id', async (request, reply) => {
+    try {
+      const tenantId = getTenantId(request);
+      const { id } = request.params;
+      const result = await deleteArtifactCascade(tenantId, id);
+
+      if (!result.deleted) {
+        return reply.status(404).send({
+          error: {
+            code: 'NOT_FOUND',
+            message: `Artifact with id ${id} not found`,
+          },
+        });
+      }
+
+      return reply.status(200).send({
+        data: {
+          deleted: true,
+          memoriesDeleted: result.memoriesDeleted,
         },
       });
     } catch (error) {

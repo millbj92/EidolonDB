@@ -1,3 +1,33 @@
 export { memoriesRoutes } from './routes.js';
-export { createMemory, createMemoriesBatch, getMemoryById, queryMemories, type MemoryWithEmbedding, type CreateMemoryOptions, type QueryMemoriesOptions } from './service.js';
-export { createMemorySchema, memoryTierSchema, memoryQuerySchema, type CreateMemoryInput, type MemoryTier, type MemoryResponse, type MemoryQueryInput, type MemoryQueryResult, type MemoryQueryResponse } from './schemas.js';
+export {
+  createMemory,
+  createMemoriesBatch,
+  getMemoryById,
+  queryMemories,
+  listMemories,
+  updateMemory,
+  deleteMemory,
+  recordMemoryAccess,
+  getMemoryStats,
+  type MemoryWithEmbedding,
+  type CreateMemoryOptions,
+  type QueryMemoriesOptions,
+  type ListMemoriesResult,
+} from './service.js';
+export {
+  createMemorySchema,
+  memoryTierSchema,
+  memoryQuerySchema,
+  listMemoriesQuerySchema,
+  updateMemorySchema,
+  memoryStatsResponseSchema,
+  type CreateMemoryInput,
+  type MemoryTier,
+  type MemoryResponse,
+  type MemoryQueryInput,
+  type MemoryQueryResult,
+  type MemoryQueryResponse,
+  type ListMemoriesQueryInput,
+  type UpdateMemoryInput,
+  type MemoryStatsResponse,
+} from './schemas.js';

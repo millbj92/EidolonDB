@@ -9,6 +9,7 @@ import {
   integer,
   index,
   vector,
+  boolean,
 } from 'drizzle-orm/pg-core';
 
 // Enums
@@ -126,6 +127,52 @@ export const events = pgTable('events', {
   index('events_timestamp_idx').on(table.timestamp),
 ]);
 
+// Ingest traces table
+export const ingestTraces = pgTable('ingest_traces', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  traceId: uuid('trace_id').notNull().unique(),
+  rawInput: text('raw_input').notNull(),
+  normalizedInput: text('normalized_input').notNull(),
+  source: text('source').notNull(),
+  actorId: text('actor_id'),
+  sessionId: text('session_id'),
+  extractorVersion: text('extractor_version').notNull(),
+  promptVersion: text('prompt_version').notNull(),
+  candidateCount: integer('candidate_count').notNull().default(0),
+  acceptedCount: integer('accepted_count').notNull().default(0),
+  rejectedCount: integer('rejected_count').notNull().default(0),
+  candidates: jsonb('candidates').$type<Record<string, unknown>[]>().default([]),
+  warnings: text('warnings').array().default([]),
+  errors: text('errors').array().default([]),
+  durationMs: integer('duration_ms'),
+  autoStore: boolean('auto_store').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('ingest_traces_tenant_id_idx').on(table.tenantId),
+  index('ingest_traces_trace_id_idx').on(table.traceId),
+  index('ingest_traces_created_at_idx').on(table.createdAt),
+]);
+
+// Lifecycle runs table
+export const lifecycleRuns = pgTable('lifecycle_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  triggeredBy: text('triggered_by').notNull().default('manual'),
+  durationMs: integer('duration_ms'),
+  expired: integer('expired').notNull().default(0),
+  promoted: integer('promoted').notNull().default(0),
+  distilled: integer('distilled').notNull().default(0),
+  archived: integer('archived').notNull().default(0),
+  unchanged: integer('unchanged').notNull().default(0),
+  errors: text('errors').array().default([]),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('lifecycle_runs_tenant_id_idx').on(table.tenantId),
+  index('lifecycle_runs_created_at_idx').on(table.createdAt),
+]);
+
 // Type exports for use in application code
 export type Entity = typeof entities.$inferSelect;
 export type NewEntity = typeof entities.$inferInsert;
@@ -144,3 +191,9 @@ export type NewRelation = typeof relations.$inferInsert;
 
 export type Event = typeof events.$inferSelect;
 export type NewEvent = typeof events.$inferInsert;
+
+export type IngestTrace = typeof ingestTraces.$inferSelect;
+export type NewIngestTrace = typeof ingestTraces.$inferInsert;
+
+export type LifecycleRun = typeof lifecycleRuns.$inferSelect;
+export type NewLifecycleRun = typeof lifecycleRuns.$inferInsert;

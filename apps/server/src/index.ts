@@ -7,6 +7,10 @@ import { entitiesRoutes } from './modules/entities/index.js';
 import { artifactsRoutes } from './modules/artifacts/index.js';
 import { memoriesRoutes } from './modules/memories/index.js';
 import { contextRoutes } from './modules/context/index.js';
+import { relationsRoutes } from './modules/relations/index.js';
+import { eventsRoutes } from './modules/events/index.js';
+import { ingestRoutes } from './modules/ingest/index.js';
+import { lifecycleRoutes } from './modules/lifecycle/index.js';
 
 async function main() {
   const fastify = Fastify({
@@ -26,6 +30,10 @@ async function main() {
   await fastify.register(artifactsRoutes);
   await fastify.register(memoriesRoutes);
   await fastify.register(contextRoutes);
+  await fastify.register(relationsRoutes);
+  await fastify.register(eventsRoutes);
+  await fastify.register(ingestRoutes);
+  await fastify.register(lifecycleRoutes);
 
   // Global error handler
   fastify.setErrorHandler((error: Error, _request, reply) => {

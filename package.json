@@ -8,6 +8,7 @@
     "dev": "pnpm --filter @eidolondb/server dev",
     "build": "pnpm --filter @eidolondb/server build",
     "start": "pnpm --filter @eidolondb/server start",
+    "eval": "npx tsx eval/run.ts",
     "db:generate": "pnpm --filter @eidolondb/server db:generate",
     "db:migrate": "pnpm --filter @eidolondb/server db:migrate",
     "db:push": "pnpm --filter @eidolondb/server db:push",
