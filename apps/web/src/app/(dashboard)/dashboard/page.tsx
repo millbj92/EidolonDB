@@ -17,10 +17,9 @@ export default async function DashboardPage() {
   const usage = tenant ? await getCurrentUsage(tenant.tenantId, month) : null;
   const keySummary = tenant ? await getApiKeySummary(tenant.tenantId) : { count: 0, lastUsedAt: null };
 
-  // TODO: Replace these placeholders with live DB-backed metrics once cloud infra is fully provisioned.
-  const memoriesCreated = usage?.memoriesCreated ?? 2341;
-  const queries = usage?.queries ?? 438;
-  const ingestCalls = usage?.ingestCalls ?? 115;
+  const memoriesCreated = usage?.memoriesCreated ?? 0;
+  const queries = usage?.queries ?? 0;
+  const ingestCalls = usage?.ingestCalls ?? 0;
 
   const planName = toPlanName(tenant?.tenantPlan);
   const limits = PLAN_LIMITS[planName];
