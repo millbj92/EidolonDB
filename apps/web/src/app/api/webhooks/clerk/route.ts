@@ -1,5 +1,5 @@
 import { Webhook } from 'svix';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { WebhookEvent } from '@clerk/nextjs/server';
 import { db } from '@/db/client';
 import { apiKeys, tenants, users } from '@/db/schema';
@@ -80,15 +80,18 @@ async function handleUserCreated(event: WebhookEvent): Promise<Response> {
     return Response.json({ message: 'No email available on user.created event.' }, { status: 400 });
   }
 
-  const upserted = await db
-    .insert(users)
-    .values({ clerkId: event.data.id, email })
-    .onConflictDoUpdate({ target: users.clerkId, set: { email } })
-    .returning();
+  // Insert or ignore if already exists, then fetch the row
+  await db.execute(
+    sql`INSERT INTO users (clerk_id, email) VALUES (${event.data.id}, ${email!}) ON CONFLICT (clerk_id) DO NOTHING`
+  );
 
-  const userRecord = upserted[0];
+  const userRows = await db.execute(
+    sql`SELECT id, clerk_id, email, created_at FROM users WHERE clerk_id = ${event.data.id} LIMIT 1`
+  );
+  const rawUser = userRows.rows[0] as { id: string; clerk_id: string; email: string; created_at: string } | undefined;
+  const userRecord = rawUser;
   if (!userRecord) {
-    return Response.json({ message: 'Failed to locate user record after upsert.' }, { status: 500 });
+    return Response.json({ message: 'Failed to locate user record after insert.' }, { status: 500 });
   }
 
   const existingTenant = await db
