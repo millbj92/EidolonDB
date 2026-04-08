@@ -1,8 +1,23 @@
 import { mkdir, readFile, writeFile, appendFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { createBaselineAgent, createEidolonDbAgent, cleanupEvalTenantMemories, type EvalAgent, type RuntimeConfig, type LlmMessage } from "./agents.js";
-import { PROJECT_ASSISTANT_V1, type EvalResult, type SessionResult, type TranscriptMessage } from "./scenario.js";
+import {
+  createBaselineAgent,
+  createEidolonDbAgent,
+  cleanupEvalTenantMemories,
+  type EvalAgent,
+  type RuntimeConfig,
+  type LlmMessage,
+} from "./agents.js";
+import {
+  SCENARIOS,
+  type AggregateMetrics,
+  type EvalResult,
+  type MultiScenarioEvalResult,
+  type ScenarioDefinition,
+  type SessionResult,
+  type TranscriptMessage,
+} from "./scenario.js";
 import { computeAgentMetrics, scoreRecall } from "./scorer.js";
 
 const RESULTS_DIR = path.resolve("eval/results");
@@ -51,11 +66,22 @@ function compactEvalResult(result: EvalResult): EvalResult {
   };
 }
 
-async function runAgentScenario(agent: EvalAgent, errors: string[]): Promise<SessionResult[]> {
+function compactMultiScenarioEvalResult(result: MultiScenarioEvalResult): MultiScenarioEvalResult {
+  return {
+    ...result,
+    scenarios: result.scenarios.map((scenario) => compactEvalResult(scenario)),
+  };
+}
+
+async function runAgentScenario(
+  scenario: ScenarioDefinition,
+  agent: EvalAgent,
+  errors: string[]
+): Promise<SessionResult[]> {
   const sessions: SessionResult[] = [];
 
-  for (const session of PROJECT_ASSISTANT_V1.sessions) {
-    console.log(`[${agent.agentType}] Session ${session.sessionNumber} start`);
+  for (const session of scenario.sessions) {
+    console.log(`[${scenario.name}] [${agent.agentType}] Session ${session.sessionNumber} start`);
 
     const sessionMessages: TranscriptMessage[] = [];
     const recallScores: SessionResult["recallScores"] = [];
@@ -65,7 +91,7 @@ async function runAgentScenario(agent: EvalAgent, errors: string[]): Promise<Ses
       llmMessages = await agent.buildSessionSystemMessages(session);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const tag = `[${agent.agentType}] session ${session.sessionNumber} memory injection failed: ${message}`;
+      const tag = `[${scenario.name}] [${agent.agentType}] session ${session.sessionNumber} memory injection failed: ${message}`;
       errors.push(tag);
       console.error(tag);
       llmMessages = [];
@@ -81,7 +107,7 @@ async function runAgentScenario(agent: EvalAgent, errors: string[]): Promise<Ses
         assistantText = await agent.respond(llmMessages);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const tag = `[${agent.agentType}] session ${session.sessionNumber} turn failed: ${message}`;
+        const tag = `[${scenario.name}] [${agent.agentType}] session ${session.sessionNumber} turn failed: ${message}`;
         errors.push(tag);
         console.error(tag);
         assistantText = getAssistantMessageFallback(error);
@@ -92,15 +118,16 @@ async function runAgentScenario(agent: EvalAgent, errors: string[]): Promise<Ses
       llmMessages.push({ role: "assistant", content: assistantText });
 
       if (userStep.recallQuestionId) {
-        const question = PROJECT_ASSISTANT_V1.questions[userStep.recallQuestionId];
+        const question = scenario.questions[userStep.recallQuestionId];
         if (question === undefined) {
-          const tag = `[${agent.agentType}] missing question definition for ${userStep.recallQuestionId}`;
+          const tag = `[${scenario.name}] [${agent.agentType}] missing question definition for ${userStep.recallQuestionId}`;
           errors.push(tag);
           continue;
         }
 
         const score = scoreRecall(assistantText, question.requiredKeywords);
         recallScores.push({
+          questionId: question.id,
           question: question.question,
           score,
           answer: assistantText,
@@ -109,10 +136,10 @@ async function runAgentScenario(agent: EvalAgent, errors: string[]): Promise<Ses
     }
 
     try {
-      await agent.persistSession(session, sessionMessages);
+      await agent.persistSession(session, sessionMessages, scenario);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const tag = `[${agent.agentType}] session ${session.sessionNumber} persist failed: ${message}`;
+      const tag = `[${scenario.name}] [${agent.agentType}] session ${session.sessionNumber} persist failed: ${message}`;
       errors.push(tag);
       console.error(tag);
     }
@@ -123,19 +150,51 @@ async function runAgentScenario(agent: EvalAgent, errors: string[]): Promise<Ses
       recallScores,
     });
 
-    console.log(`[${agent.agentType}] Session ${session.sessionNumber} complete`);
+    console.log(`[${scenario.name}] [${agent.agentType}] Session ${session.sessionNumber} complete`);
   }
 
   return sessions;
 }
 
-async function writeResults(result: EvalResult): Promise<void> {
+function average(values: number[]): number {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function computeAggregateMetrics(results: EvalResult[]): AggregateMetrics {
+  const baseline = {
+    recallAccuracy: average(results.map((result) => result.baseline.recallAccuracy)),
+    hallucinationScore: average(results.map((result) => result.baseline.hallucinationScore)),
+    overallScore: average(results.map((result) => result.baseline.overallScore)),
+  };
+
+  const eidolondb = {
+    recallAccuracy: average(results.map((result) => result.eidolondb.recallAccuracy)),
+    hallucinationScore: average(results.map((result) => result.eidolondb.hallucinationScore)),
+    overallScore: average(results.map((result) => result.eidolondb.overallScore)),
+  };
+
+  return {
+    baseline,
+    eidolondb,
+    delta: {
+      recallAccuracy: eidolondb.recallAccuracy - baseline.recallAccuracy,
+      hallucinationScore: eidolondb.hallucinationScore - baseline.hallucinationScore,
+      overallScore: eidolondb.overallScore - baseline.overallScore,
+    },
+  };
+}
+
+async function writeResults(result: MultiScenarioEvalResult): Promise<void> {
   await mkdir(RESULTS_DIR, { recursive: true });
 
   const resultPath = path.join(RESULTS_DIR, `${result.runDate}.json`);
   await writeFile(resultPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
 
-  const compact = compactEvalResult(result);
+  const compact = compactMultiScenarioEvalResult(result);
   await appendFile(HISTORY_FILE, `${JSON.stringify(compact)}\n`, "utf8");
 
   console.log(`Saved full result: ${resultPath}`);
@@ -151,42 +210,71 @@ async function main(): Promise<void> {
   const config = buildRuntimeConfig();
 
   console.log(`Starting eval run ${runId} on ${runDate}`);
-  console.log(`Scenario: ${PROJECT_ASSISTANT_V1.name}`);
+  console.log(`Scenarios: ${SCENARIOS.map((scenario) => scenario.name).join(", ")}`);
   console.log(`EIDOLONDB_URL: ${config.eidolonDbUrl}`);
 
-  try {
-    const deleted = await cleanupEvalTenantMemories(config);
-    console.log(`Cleared eval tenant memories: ${deleted}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const tag = `[cleanup] failed: ${message}`;
-    errors.push(tag);
-    console.error(tag);
+  const scenarioResults: EvalResult[] = [];
+
+  for (const scenario of SCENARIOS) {
+    const scenarioStartedAt = Date.now();
+    const scenarioErrors: string[] = [];
+
+    console.log(`Starting scenario: ${scenario.name}`);
+
+    try {
+      const deleted = await cleanupEvalTenantMemories(config);
+      console.log(`[${scenario.name}] Cleared eval tenant memories: ${deleted}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const tag = `[${scenario.name}] [cleanup] failed: ${message}`;
+      scenarioErrors.push(tag);
+      console.error(tag);
+    }
+
+    const baselineAgent = createBaselineAgent(config);
+    const eidolonAgent = createEidolonDbAgent(config);
+
+    const baselineSessions = await runAgentScenario(scenario, baselineAgent, scenarioErrors);
+    const eidolonSessions = await runAgentScenario(scenario, eidolonAgent, scenarioErrors);
+
+    for (const scenarioError of scenarioErrors) {
+      errors.push(scenarioError);
+    }
+
+    const baseline = computeAgentMetrics("baseline", baselineSessions, scenario);
+    const eidolondb = computeAgentMetrics("eidolondb", eidolonSessions, scenario);
+
+    const scenarioResult: EvalResult = {
+      runDate,
+      runId,
+      scenario: scenario.name,
+      baseline,
+      eidolondb,
+      delta: {
+        recallAccuracy: eidolondb.recallAccuracy - baseline.recallAccuracy,
+        hallucinationScore: eidolondb.hallucinationScore - baseline.hallucinationScore,
+        overallScore: eidolondb.overallScore - baseline.overallScore,
+      },
+      durationMs: Date.now() - scenarioStartedAt,
+      errors: scenarioErrors,
+    };
+
+    scenarioResults.push(scenarioResult);
+
+    console.log(
+      `[${scenario.name}] Summary baseline(overall=${baseline.overallScore.toFixed(3)}) eidolondb(overall=${eidolondb.overallScore.toFixed(3)}) delta=${scenarioResult.delta.overallScore.toFixed(3)}`
+    );
   }
 
-  const baselineAgent = createBaselineAgent(config);
-  const eidolonAgent = createEidolonDbAgent(config);
+  const aggregate = computeAggregateMetrics(scenarioResults);
 
-  const baselineSessions = await runAgentScenario(baselineAgent, errors);
-  const eidolonSessions = await runAgentScenario(eidolonAgent, errors);
-
-  const baseline = computeAgentMetrics("baseline", baselineSessions, PROJECT_ASSISTANT_V1);
-  const eidolondb = computeAgentMetrics("eidolondb", eidolonSessions, PROJECT_ASSISTANT_V1);
-
-  const durationMs = Date.now() - startedAt;
-
-  const result: EvalResult = {
+  const result: MultiScenarioEvalResult = {
     runDate,
     runId,
-    scenario: PROJECT_ASSISTANT_V1.name,
-    baseline,
-    eidolondb,
-    delta: {
-      recallAccuracy: eidolondb.recallAccuracy - baseline.recallAccuracy,
-      hallucinationScore: eidolondb.hallucinationScore - baseline.hallucinationScore,
-      overallScore: eidolondb.overallScore - baseline.overallScore,
-    },
-    durationMs,
+    scenarios: scenarioResults,
+    aggregate,
+    overallDelta: aggregate.delta,
+    durationMs: Date.now() - startedAt,
     errors,
   };
 
@@ -197,17 +285,22 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         runId: result.runId,
-        baseline: {
-          recallAccuracy: baseline.recallAccuracy,
-          hallucinationScore: baseline.hallucinationScore,
-          overallScore: baseline.overallScore,
-        },
-        eidolondb: {
-          recallAccuracy: eidolondb.recallAccuracy,
-          hallucinationScore: eidolondb.hallucinationScore,
-          overallScore: eidolondb.overallScore,
-        },
-        delta: result.delta,
+        scenarios: result.scenarios.map((scenario) => ({
+          scenario: scenario.scenario,
+          baseline: {
+            recallAccuracy: scenario.baseline.recallAccuracy,
+            hallucinationScore: scenario.baseline.hallucinationScore,
+            overallScore: scenario.baseline.overallScore,
+          },
+          eidolondb: {
+            recallAccuracy: scenario.eidolondb.recallAccuracy,
+            hallucinationScore: scenario.eidolondb.hallucinationScore,
+            overallScore: scenario.eidolondb.overallScore,
+          },
+          delta: scenario.delta,
+        })),
+        aggregate: result.aggregate,
+        overallDelta: result.overallDelta,
         durationMs: result.durationMs,
         errors: result.errors.length,
       },

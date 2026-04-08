@@ -43,16 +43,22 @@ export function computeAgentMetrics(
   sessions: SessionResult[],
   scenario: ScenarioDefinition
 ): AgentMetrics {
-  const hallucinationQuestion = scenario.questions["s3_q4_hallucination"];
+  const hallucinationQuestionIds = new Set(
+    Object.values(scenario.questions)
+      .filter((question) => question.kind === "hallucination")
+      .map((question) => question.id)
+  );
 
   let totalRecallScore = 0;
   let maxRecallScore = 0;
-  let hallucinationScore = 0;
+  let hallucinationHitCount = 0;
+  let hallucinationQuestionCount = 0;
 
   for (const session of sessions) {
     for (const recall of session.recallScores) {
-      if (recall.question === hallucinationQuestion?.question) {
-        hallucinationScore = recall.score >= 1 ? 1 : 0;
+      if (hallucinationQuestionIds.has(recall.questionId)) {
+        hallucinationQuestionCount += 1;
+        hallucinationHitCount += recall.score >= 1 ? 1 : 0;
       } else {
         totalRecallScore += recall.score;
         maxRecallScore += 1;
@@ -60,6 +66,8 @@ export function computeAgentMetrics(
     }
   }
 
+  const hallucinationScore =
+    hallucinationQuestionCount > 0 ? hallucinationHitCount / hallucinationQuestionCount : 0;
   const recallAccuracy = maxRecallScore > 0 ? totalRecallScore / maxRecallScore : 0;
   const onboardingTurns = calculateOnboardingTurns(sessions);
   const onboardingBonus = onboardingTurns === 0 ? 1 : 0;

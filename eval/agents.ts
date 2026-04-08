@@ -1,4 +1,4 @@
-import type { AgentType, SessionDefinition, TranscriptMessage } from "./scenario.js";
+import type { AgentType, ScenarioDefinition, SessionDefinition, TranscriptMessage } from "./scenario.js";
 
 export interface RuntimeConfig {
   openAiApiKey: string;
@@ -15,7 +15,11 @@ export interface EvalAgent {
   readonly agentType: AgentType;
   buildSessionSystemMessages(session: SessionDefinition): Promise<LlmMessage[]>;
   respond(messages: LlmMessage[]): Promise<string>;
-  persistSession(session: SessionDefinition, transcript: TranscriptMessage[]): Promise<void>;
+  persistSession(
+    session: SessionDefinition,
+    transcript: TranscriptMessage[],
+    scenario: ScenarioDefinition
+  ): Promise<void>;
 }
 
 const EVAL_TENANT_ID = "openclaw-eval";
@@ -103,7 +107,12 @@ async function queryRelevantMemories(config: RuntimeConfig, openingMessage: stri
     .slice(0, 10);
 }
 
-async function ingestSessionTranscript(config: RuntimeConfig, sessionNumber: number, transcript: TranscriptMessage[]): Promise<void> {
+async function ingestSessionTranscript(
+  config: RuntimeConfig,
+  sessionNumber: number,
+  transcript: TranscriptMessage[],
+  scenarioName: string
+): Promise<void> {
   const transcriptText = transcript
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
     .join("\n");
@@ -119,7 +128,7 @@ async function ingestSessionTranscript(config: RuntimeConfig, sessionNumber: num
       autoStore: true,
       content: transcriptText,
       metadata: {
-        evalScenario: "project-assistant-v1",
+        evalScenario: scenarioName,
         sessionNumber,
       },
     }),
@@ -194,6 +203,22 @@ export function createBaselineAgent(config: RuntimeConfig): EvalAgent {
   };
 }
 
+function buildEidolonMemorySystemPrompt(memories: string[]): string {
+  const memoryBlock =
+    memories.length > 0 ? memories.map((memory) => `- ${memory}`).join("\n") : "- (no retrieved memories)";
+
+  return [
+    "You are an assistant using EidolonDB memory context.",
+    "Treat the retrieved memory block below as the ground truth for prior discussions.",
+    "Cross-check user claims against that memory before accepting them as facts.",
+    "If the user references prior decisions or events that are not in retrieved memory, proactively say so clearly (for example: \"I don't have any record of that being discussed\") and avoid confirming the claim.",
+    "When memory does support a claim, answer normally and cite the remembered details concisely.",
+    "",
+    "Retrieved memory context:",
+    memoryBlock,
+  ].join("\n");
+}
+
 export function createEidolonDbAgent(config: RuntimeConfig): EvalAgent {
   return {
     agentType: "eidolondb",
@@ -208,22 +233,22 @@ export function createEidolonDbAgent(config: RuntimeConfig): EvalAgent {
       }
 
       const memories = await queryRelevantMemories(config, openingMessage);
-      if (memories.length === 0) {
-        return [];
-      }
-
       return [
         {
           role: "system",
-          content: `Relevant context from previous sessions:\n${memories.map((m) => `- ${m}`).join("\n")}`,
+          content: buildEidolonMemorySystemPrompt(memories),
         },
       ];
     },
     async respond(messages: LlmMessage[]): Promise<string> {
       return openAiChatCompletion(config, messages);
     },
-    async persistSession(session: SessionDefinition, transcript: TranscriptMessage[]): Promise<void> {
-      await ingestSessionTranscript(config, session.sessionNumber, transcript);
+    async persistSession(
+      session: SessionDefinition,
+      transcript: TranscriptMessage[],
+      scenario: ScenarioDefinition
+    ): Promise<void> {
+      await ingestSessionTranscript(config, session.sessionNumber, transcript, scenario.name);
     },
   };
 }
