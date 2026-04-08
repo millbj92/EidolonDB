@@ -1,5 +1,14 @@
 # EidolonDB System Prompt Template
 
+## SDK Quick Reference
+
+- JS: `db.recall(query, k)` -> returns `string[]`
+- JS: `db.ingest(transcript, { source: "chat" })` -> extracts + stores automatically
+- JS: `db.remember(fact, { importance: 0.8 })` -> store a single known fact directly
+- Python: `db.recall(query, k)` -> `list[str]`
+- Python: `db.ingest(transcript, source="chat")`
+- Python: `db.remember(fact, importance=0.8)`
+
 Use this template as your system prompt when injecting retrieved EidolonDB memories.
 
 ## Instructions

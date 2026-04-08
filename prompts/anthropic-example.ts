@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { EidolonDB } from "@eidolondb/client";
 
 const SYSTEM_PROMPT_TEMPLATE = `
 You are an assistant that can use retrieved memory context from prior conversations.
@@ -11,33 +12,55 @@ Retrieved memories:
 {{EIDOLONDB_RETRIEVED_MEMORIES}}
 `.trim();
 
-function buildSystemPrompt(retrievedMemories: string[]): string {
-  const memoryText =
-    retrievedMemories.length > 0
-      ? retrievedMemories.map((memory) => `- ${memory}`).join("\n")
+function buildSystemPrompt(memories: string[]): string {
+  const memoryBlock =
+    memories.length > 0
+      ? memories.map((memory) => `- ${memory}`).join("\n")
       : "- (no retrieved memories)";
 
-  return SYSTEM_PROMPT_TEMPLATE.replace("{{EIDOLONDB_RETRIEVED_MEMORIES}}", memoryText);
+  return SYSTEM_PROMPT_TEMPLATE.replace("{{EIDOLONDB_RETRIEVED_MEMORIES}}", memoryBlock);
 }
 
-async function respondWithMemoryContext(params: {
-  apiKey: string;
-  model: string;
-  userMessage: string;
-  retrievedMemories: string[];
-}): Promise<string> {
-  const client = new Anthropic({ apiKey: params.apiKey });
+async function runAnthropicTurn(userMessage: string): Promise<void> {
+  // 1) Init EidolonDB + Anthropic clients
+  const db = new EidolonDB({ url: "http://localhost:3000", tenant: "my-app" });
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const response = await client.messages.create({
-    model: params.model,
+  // 2) Recall relevant memories for this turn
+  const memories = await db.recall(userMessage, 10);
+
+  // 3) Build system prompt with injected memories
+  const systemPrompt = buildSystemPrompt(memories);
+
+  // 4) Send prompt + user message to Anthropic
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
     max_tokens: 400,
     temperature: 0,
-    system: buildSystemPrompt(params.retrievedMemories),
-    messages: [{ role: "user", content: params.userMessage }],
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
   });
 
-  const firstBlock = response.content[0];
-  return firstBlock.type === "text" ? firstBlock.text : "";
+  const assistantText = response.content
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+
+  console.log("Assistant:", assistantText);
+
+  // 5) After session end, ingest transcript so it becomes memory
+  const fullTranscriptText = [
+    `User: ${userMessage}`,
+    `Assistant: ${assistantText}`,
+  ].join("\n");
+
+  await db.ingest(fullTranscriptText, { source: "chat" });
 }
 
-export { respondWithMemoryContext, buildSystemPrompt };
+void runAnthropicTurn("What did we decide about the deployment window?").catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
+export { buildSystemPrompt, runAnthropicTurn };
