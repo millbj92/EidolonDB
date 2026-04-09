@@ -66,7 +66,10 @@ export async function POST(request: Request): Promise<Response> {
     const customerId = typeof session.customer === 'string' ? session.customer : null;
     const tenantId =
       typeof session.metadata?.['tenantId'] === 'string' ? session.metadata['tenantId'] : null;
-    const plan = planFromPriceId(session.metadata?.['plan']);
+    // metadata.plan is already the plan name (e.g. 'developer'), not a price ID
+    const rawPlan = session.metadata?.['plan'];
+    const plan: 'free' | 'developer' | 'growth' =
+      rawPlan === 'growth' ? 'growth' : rawPlan === 'developer' ? 'developer' : 'free';
 
     if (tenantId) {
       await db
