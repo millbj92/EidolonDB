@@ -3,10 +3,10 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
   title: 'EidolonDB',
   description: 'Self-managing memory for AI agents',
-  base: '/',
+  base: '/docs/',
   themeConfig: {
     nav: [
-      { text: 'Home', link: '/' },
+      { text: 'eidolondb.com', link: 'https://eidolondb.com' },
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'API Reference', link: '/api/overview' },
       { text: 'SDK', link: '/sdk/javascript' },

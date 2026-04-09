@@ -1,3 +1,7 @@
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+public/docs/
+!public/docs/
+!public/docs/.gitkeep
