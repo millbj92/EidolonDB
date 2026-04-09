@@ -14,23 +14,21 @@ export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q')?.trim() ?? '';
   const limitRaw = searchParams.get('limit') ?? '20';
-  const limit = Number.parseInt(limitRaw, 10);
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+  const k = Math.min(Math.max(Number.parseInt(limitRaw, 10) || 20, 1), 100);
 
   if (!q) {
     return Response.json({ results: [] });
   }
 
   const upstream = new URL('/memories/query', baseUrl);
-  upstream.searchParams.set('q', q);
-  upstream.searchParams.set('limit', String(safeLimit));
 
   const response = await fetch(upstream.toString(), {
-    method: 'GET',
+    method: 'POST',
     headers: {
       'x-tenant-id': tenant.tenantSlug,
       'content-type': 'application/json',
     },
+    body: JSON.stringify({ text: q, k }),
     cache: 'no-store',
   });
 
@@ -39,7 +37,7 @@ export async function GET(request: Request): Promise<Response> {
   try {
     json = JSON.parse(text) as unknown;
   } catch {
-    json = { results: [] };
+    /* ignore */
   }
 
   if (!response.ok) {
@@ -49,13 +47,16 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
-  if (typeof json === 'object' && json !== null && 'results' in json) {
-    return Response.json(json);
-  }
+  // Unwrap { data: { results: [...] } } envelope
+  const unwrapped = (typeof json === 'object' && json !== null && 'data' in json)
+    ? (json as Record<string, unknown>)['data']
+    : json;
 
-  if (Array.isArray(json)) {
-    return Response.json({ results: json });
+  if (typeof unwrapped === 'object' && unwrapped !== null && 'results' in unwrapped) {
+    return Response.json(unwrapped);
   }
-
+  if (Array.isArray(unwrapped)) {
+    return Response.json({ results: unwrapped });
+  }
   return Response.json({ results: [] });
 }
