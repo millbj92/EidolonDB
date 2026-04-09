@@ -2,8 +2,8 @@ import { Webhook } from 'svix';
 import { eq, sql } from 'drizzle-orm';
 import type { WebhookEvent } from '@clerk/nextjs/server';
 import { db } from '@/db/client';
-import { apiKeys, tenants, users } from '@/db/schema';
-import { generateApiKey, sanitizeSlug } from '@/lib/api-keys';
+import { tenants, users } from '@/db/schema';
+import { sanitizeSlug } from '@/lib/api-keys';
 import { ensureTenantSlugIsUnique } from '@/lib/db-utils';
 
 function getPrimaryEmail(event: WebhookEvent): string | null {
@@ -120,14 +120,6 @@ async function handleUserCreated(event: WebhookEvent): Promise<Response> {
   if (!tenantRecord) {
     return Response.json({ message: 'Failed to create tenant record.' }, { status: 500 });
   }
-
-  const firstKey = await generateApiKey();
-  await db.insert(apiKeys).values({
-    tenantId: tenantRecord.id,
-    keyHash: firstKey.keyHash,
-    keyPrefix: firstKey.keyPrefix,
-    label: 'Default key',
-  });
 
   return Response.json({ ok: true });
 }

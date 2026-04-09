@@ -46,6 +46,13 @@ export default function ApiKeysPage() {
     void loadKeys();
   }, []);
 
+  useEffect(() => {
+    if (!loading && keys.length === 0) {
+      const timer = setTimeout(() => setModalOpen(true), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, keys.length]);
+
   async function createKey() {
     setCreating(true);
     setError(null);
@@ -120,22 +127,47 @@ export default function ApiKeysPage() {
       ) : null}
 
       {createdKey ? (
-        <section className="panel" style={{ borderColor: 'var(--good)' }}>
-          <p style={{ marginTop: 0, fontWeight: 700 }}>New API key</p>
-          <pre className="install" style={{ marginBottom: '0.7rem' }}>
+        <section className="panel" style={{ borderColor: '#22c55e', background: 'rgba(34,197,94,0.05)' }}>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+            <p style={{ margin: 0, fontWeight: 700, color: '#22c55e' }}>✓ API key created — save it now</p>
+            <button
+              className="btn"
+              style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}
+              type="button"
+              onClick={() => void navigator.clipboard.writeText(createdKey)}
+            >
+              Copy
+            </button>
+          </div>
+          <pre className="install" style={{ marginBottom: '0.7rem', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
             <code>{createdKey}</code>
           </pre>
-          <p className="muted" style={{ margin: 0 }}>
-            Save this now. You won&apos;t be able to see the full key again.
+          <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+            This is the only time the full key will be shown. Store it in your environment variables or a secrets manager.
           </p>
+          <button
+            className="btn"
+            style={{ marginTop: '0.75rem', fontSize: '0.8rem' }}
+            type="button"
+            onClick={() => setCreatedKey(null)}
+          >
+            I&apos;ve saved it — dismiss
+          </button>
         </section>
       ) : null}
 
       <section className="panel">
         {loading ? <p className="muted">Loading keys...</p> : null}
-        {!loading && activeKeys.length === 0 ? (
-          <div className="empty">
-            No API keys yet. Create your first key to start calling EidolonDB cloud endpoints.
+        {!loading && keys.length === 0 ? (
+          <div className="empty" style={{ textAlign: 'center', padding: '2rem' }}>
+            <p style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Create your first API key</p>
+            <p className="muted" style={{ marginBottom: '1.25rem' }}>
+              You&apos;ll need an API key to use EidolonDB from your app or the SDK. The full key is only shown once
+              — save it somewhere safe.
+            </p>
+            <button className="btn btn-primary" type="button" onClick={() => setModalOpen(true)}>
+              Create API key →
+            </button>
           </div>
         ) : null}
         {!loading && activeKeys.length > 0 ? (
@@ -167,6 +199,9 @@ export default function ApiKeysPage() {
         <div className="modal-backdrop">
           <div className="panel modal">
             <h2 style={{ marginTop: 0 }}>Create API key</h2>
+            <p className="muted" style={{ marginTop: 0, marginBottom: '1rem', fontSize: '0.88rem' }}>
+              The full key is shown once immediately after creation. Copy it to a safe place — it cannot be recovered.
+            </p>
             <label htmlFor="key-label" className="muted" style={{ display: 'block', marginBottom: '0.45rem' }}>
               Label
             </label>
