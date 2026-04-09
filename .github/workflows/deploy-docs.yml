@@ -1,5 +1,0 @@
-# Docs are now served at /docs via apps/web (built during next build).
-# This workflow is retired. See apps/web/package.json build script.
-name: Deploy Docs (retired)
-on: []
-jobs: {}
