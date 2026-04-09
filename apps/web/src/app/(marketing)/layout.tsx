@@ -15,6 +15,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <Link href="/#evals">Evals</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/docs">Docs</Link>
+            <Link href="/contact">Contact</Link>
             <NavAuth />
           </nav>
         </div>
@@ -25,6 +26,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <p>EidolonDB - MIT License</p>
           <div className="footer-links">
             <a href="/docs">Docs</a>
+            <a href="/contact">Contact</a>
             <a href="https://github.com/eidolondb/eidolondb" target="_blank" rel="noreferrer">
               GitHub
             </a>
