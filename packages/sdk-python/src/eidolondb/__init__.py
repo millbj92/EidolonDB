@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 from ._client import EidolonDBClient, EidolonDBConfig, EidolonDBError
 from . import _types as _types_module
 from ._types import *
-from ._types import IngestSource, Memory, MemorySearchResult, MemoryTier
+from ._types import IngestSource, Memory, MemorySearchResult, MemoryTier, TemporalFilter
 from .resources import (
     ArtifactsResource,
     ContextResource,
@@ -57,8 +57,28 @@ class EidolonDB:
             kwargs["tags"] = tags
         return self.memories.create(tier=tier, content=content, **kwargs)
 
-    def recall(self, query: str, k: int = 10) -> List[str]:
-        results = self.memories.search(query, k=k)
+    def recall(self, query: str, k: int = 10, session_number: Optional[int] = None) -> List[str]:
+        """
+        Semantic recall returning plain memory contents.
+
+        Args:
+            query: Semantic search query
+            k: Number of results (default 10)
+            session_number: If provided, restrict to a specific session.
+                Positive int = absolute session number (e.g. 3 = session 3).
+                Negative int = relative offset (e.g. -1 = last session, -2 = two sessions ago).
+        """
+        kwargs: Any = {"k": k}
+
+        if session_number is not None:
+            temporal: TemporalFilter
+            if session_number < 0:
+                temporal = {"mode": "session-relative", "sessionOffset": session_number}
+            else:
+                temporal = {"mode": "session-relative", "sessionNumber": session_number}
+            kwargs["temporal"] = temporal
+
+        results = self.memories.search(query, **kwargs)
         return [result["memory"]["content"] for result in results]
 
     def ingest(self, content: str, *, source: IngestSource = "chat", **kwargs: Any) -> dict:

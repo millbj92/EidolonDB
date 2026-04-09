@@ -7,6 +7,7 @@ import type {
   MemorySearchResult,
   MemoryTier,
   SearchMemoriesOptions,
+  TemporalFilter,
 } from './types.js';
 import { ArtifactsResource } from './resources/artifacts.js';
 import { ContextResource } from './resources/context.js';
@@ -20,6 +21,7 @@ import { FeedbackResource } from './resources/feedback.js';
 
 export { EidolonDBClient, EidolonDBError, type EidolonDBConfig } from './client.js';
 export * from './types.js';
+export type { TemporalFilter } from './types.js';
 export { MemoriesResource } from './resources/memories.js';
 export { EntitiesResource } from './resources/entities.js';
 export { ArtifactsResource } from './resources/artifacts.js';
@@ -91,9 +93,24 @@ export class EidolonDB {
 
   /**
    * Convenience recall returning plain memory contents.
+   * @param query - Semantic search query
+   * @param k - Number of results to return (default: 5)
+   * @param sessionNumber - If provided, restrict recall to a specific session number.
+   *   Pass a positive integer for absolute session number (e.g. 3 = session 3),
+   *   or a negative integer for relative offset (e.g. -1 = last session, -2 = two sessions ago).
    */
-  async recall(query: string, k = 5): Promise<string[]> {
-    const results = await this.memories.search(query, { k });
+  async recall(query: string, k = 5, sessionNumber?: number): Promise<string[]> {
+    const options: SearchMemoriesOptions = { k };
+
+    if (sessionNumber !== undefined) {
+      const temporal: TemporalFilter =
+        sessionNumber < 0
+          ? { mode: 'session-relative', sessionOffset: sessionNumber }
+          : { mode: 'session-relative', sessionNumber };
+      options.temporal = temporal;
+    }
+
+    const results = await this.memories.search(query, options);
     return results.map((result) => result.memory.content);
   }
 }

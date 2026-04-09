@@ -6,23 +6,19 @@ import { getCached, setCached } from '../cache.js';
 
 const PLAN_LIMITS = {
   free: {
-    memoriesPerMonth: 10_000,
-    queriesPerMonth: 1_000,
+    opsPerMonth: 10_000,
     requestsPerMinute: 100,
   },
-  pro: {
-    memoriesPerMonth: 500_000,
-    queriesPerMonth: 100_000,
+  developer: {
+    opsPerMonth: 200_000,
     requestsPerMinute: 1_000,
   },
-  team: {
-    memoriesPerMonth: Number.POSITIVE_INFINITY,
-    queriesPerMonth: 1_000_000,
+  growth: {
+    opsPerMonth: 1_000_000,
     requestsPerMinute: 2_000,
   },
   enterprise: {
-    memoriesPerMonth: Number.POSITIVE_INFINITY,
-    queriesPerMonth: Number.POSITIVE_INFINITY,
+    opsPerMonth: Number.POSITIVE_INFINITY,
     requestsPerMinute: 10_000,
   },
 } as const;
@@ -35,19 +31,28 @@ export type ApiKeyLookup = {
   tenantSlug: string;
 };
 
-function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+export function currentMonthKey(date = new Date()): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
 }
 
-function isPlanName(plan: string): plan is PlanName {
-  return plan in PLAN_LIMITS;
+function normalizePlan(plan: string): PlanName {
+  if (plan === 'developer' || plan === 'growth' || plan === 'enterprise') {
+    return plan;
+  }
+  // Backward compatibility for older plan values.
+  if (plan === 'pro') {
+    return 'developer';
+  }
+  if (plan === 'team') {
+    return 'growth';
+  }
+  return 'free';
 }
 
 export function getPlanRpm(plan: string): number {
-  if (!isPlanName(plan)) {
-    return PLAN_LIMITS.free.requestsPerMinute;
-  }
-  return PLAN_LIMITS[plan].requestsPerMinute;
+  return PLAN_LIMITS[normalizePlan(plan)].requestsPerMinute;
 }
 
 export async function lookupApiKey(rawKey: string): Promise<ApiKeyLookup | null> {
@@ -109,77 +114,53 @@ export async function lookupApiKey(rawKey: string): Promise<ApiKeyLookup | null>
   return null;
 }
 
-export async function incrementUsage(
-  tenantSlug: string,
-  field: 'memoriesCreated' | 'queries' | 'ingestCalls' | 'lifecycleRuns'
-): Promise<void> {
+export async function incrementOps(tenantId: string, month: string, count = 1): Promise<void> {
   if (!db) {
     return;
   }
 
-  const month = currentMonth();
-
-  const tenant = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.slug, tenantSlug)).limit(1);
-  const tenantId = tenant[0]?.id;
-
-  if (!tenantId) {
-    return;
-  }
-
-  const existing = await db
-    .select({ id: usage.id })
-    .from(usage)
-    .where(and(eq(usage.tenantId, tenantId), eq(usage.month, month)))
-    .limit(1);
-
-  if (!existing.length) {
-    await db.insert(usage).values({
-      tenantId,
-      month,
-      memoriesCreated: 0,
-      queries: 0,
-      ingestCalls: 0,
-      lifecycleRuns: 0,
-    });
-  }
-
   await db
-    .update(usage)
-    .set({
-      [field]: sql`${usage[field]} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(usage.tenantId, tenantId), eq(usage.month, month)));
+    .insert(usage)
+    .values({ tenantId, month, opsTotal: count })
+    .onConflictDoUpdate({
+      target: [usage.tenantId, usage.month],
+      set: {
+        opsTotal: sql`${usage.opsTotal} + ${count}`,
+        updatedAt: new Date(),
+      },
+    });
 }
 
-export async function checkQuota(tenantSlug: string, plan: string): Promise<{ allowed: boolean; reason?: string }> {
+export async function checkQuota(tenantId: string, plan: string): Promise<{ allowed: boolean; reason?: string }> {
   if (!db) {
     return { allowed: false, reason: 'billing_db_unavailable' };
   }
 
-  const normalizedPlan: PlanName = isPlanName(plan) ? plan : 'free';
-  const limits = PLAN_LIMITS[normalizedPlan];
-
-  const month = currentMonth();
+  const month = currentMonthKey();
+  const normalizedPlan = normalizePlan(plan);
 
   const rows = await db
     .select({
-      memoriesCreated: usage.memoriesCreated,
-      queries: usage.queries,
+      opsTotal: usage.opsTotal,
+      opsCapOverride: tenants.opsCapOverride,
     })
-    .from(usage)
-    .innerJoin(tenants, eq(usage.tenantId, tenants.id))
-    .where(and(eq(tenants.slug, tenantSlug), eq(usage.month, month)))
+    .from(tenants)
+    .leftJoin(usage, and(eq(usage.tenantId, tenants.id), eq(usage.month, month)))
+    .where(eq(tenants.id, tenantId))
     .limit(1);
 
-  const current = rows[0] ?? { memoriesCreated: 0, queries: 0 };
-
-  if (current.memoriesCreated >= limits.memoriesPerMonth) {
-    return { allowed: false, reason: 'memories_limit_exceeded' };
+  const row = rows[0];
+  if (!row) {
+    return { allowed: true };
   }
 
-  if (current.queries >= limits.queriesPerMonth) {
-    return { allowed: false, reason: 'queries_limit_exceeded' };
+  const cap =
+    typeof row.opsCapOverride === 'number' && Number.isFinite(row.opsCapOverride) && row.opsCapOverride >= 0
+      ? row.opsCapOverride
+      : PLAN_LIMITS[normalizedPlan].opsPerMonth;
+
+  if (Number.isFinite(cap) && (row.opsTotal ?? 0) >= cap) {
+    return { allowed: false, reason: 'ops_limit_exceeded' };
   }
 
   return { allowed: true };

@@ -14,12 +14,12 @@ It is responsible for:
 - `PORT` (default: `3001`): Gateway listen port.
 - `HOST` (default: `0.0.0.0`): Gateway bind host.
 - `LOG_LEVEL` (default: `info`): Fastify log level.
-- `DATABASE_URL`: Neon Postgres URL for users/billing data.
+- `USERS_DATABASE_URL`: Neon Postgres URL for users/billing data.
 - `EIDOLONDB_INTERNAL_URL` (default: `http://localhost:3000`): Internal EidolonDB upstream URL.
 - `DEV_BYPASS_AUTH` (default: `false`): Skip API key auth in local development.
 - `DEV_TENANT_ID` (default: `openclaw`): Tenant slug injected when bypassing auth.
 
-If `DATABASE_URL` is not set and `DEV_BYPASS_AUTH=false`, the process still starts but authenticated requests will fail.
+If `USERS_DATABASE_URL` is not set and `DEV_BYPASS_AUTH=false`, the process still starts but authenticated requests will fail.
 
 ## Local Development
 

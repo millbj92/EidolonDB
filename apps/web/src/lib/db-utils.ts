@@ -3,11 +3,13 @@ import { auth } from '@clerk/nextjs/server';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { apiKeys, tenants, usage, users } from '@/db/schema';
+import { PLAN_LIMITS, toPlanName } from '@/lib/plans';
 
 export type TenantContext = {
   tenantId: string;
   tenantSlug: string;
   tenantPlan: string;
+  opsCapOverride: number | null;
   userEmail: string;
 };
 
@@ -27,6 +29,7 @@ export async function getTenantContextFromAuth(): Promise<TenantContext | null> 
       tenantId: tenants.id,
       tenantSlug: tenants.slug,
       tenantPlan: tenants.plan,
+      opsCapOverride: tenants.opsCapOverride,
       userEmail: users.email,
     })
     .from(users)
@@ -37,18 +40,35 @@ export async function getTenantContextFromAuth(): Promise<TenantContext | null> 
   return rows[0] ?? null;
 }
 
-export async function getCurrentUsage(tenantId: string, month: string) {
+export async function getCurrentUsage(
+  tenantId: string,
+  month: string
+): Promise<{ opsTotal: number; month: string } | null> {
   if (!db) {
     return null;
   }
 
   const rows = await db
-    .select()
+    .select({ opsTotal: usage.opsTotal, month: usage.month })
     .from(usage)
     .where(and(eq(usage.tenantId, tenantId), eq(usage.month, month)))
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+export async function incrementOps(tenantId: string, month: string, count = 1): Promise<void> {
+  if (!db) return;
+  await db
+    .insert(usage)
+    .values({ tenantId, month, opsTotal: count })
+    .onConflictDoUpdate({
+      target: [usage.tenantId, usage.month],
+      set: {
+        opsTotal: sql`${usage.opsTotal} + ${count}`,
+        updatedAt: new Date(),
+      },
+    });
 }
 
 export async function getApiKeySummary(tenantId: string) {
@@ -72,6 +92,14 @@ export function currentMonthKey(date = new Date()): string {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
+}
+
+export function getOpsCap(plan: string, opsCapOverride?: number | null): number {
+  if (typeof opsCapOverride === 'number' && Number.isFinite(opsCapOverride) && opsCapOverride >= 0) {
+    return opsCapOverride;
+  }
+  const normalized = toPlanName(plan);
+  return PLAN_LIMITS[normalized].opsPerMonth;
 }
 
 export async function ensureTenantSlugIsUnique(baseSlug: string): Promise<string> {

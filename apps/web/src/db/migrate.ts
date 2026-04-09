@@ -3,11 +3,13 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { migrate } from 'drizzle-orm/neon-http/migrator';
 
+// This script is run automatically by CI (.github/workflows/migrate.yml) on push to main
+// when schema changes. To run locally: pnpm db:migrate (requires USERS_DATABASE_URL in .env)
 async function runMigration(): Promise<void> {
-  const databaseUrl = process.env['DATABASE_URL'];
+  const databaseUrl = process.env['USERS_DATABASE_URL'];
 
   if (!databaseUrl) {
-    console.error('DATABASE_URL is required to run migrations.');
+    console.error('USERS_DATABASE_URL is required to run migrations.');
     process.exit(1);
   }
 

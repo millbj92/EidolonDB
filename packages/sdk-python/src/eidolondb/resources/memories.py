@@ -11,6 +11,7 @@ from .._types import (
     MemoryStatsResponse,
     MemoryTier,
     SearchMemoriesOptions,
+    TemporalFilter,
     UpdateMemoryInput,
 )
 
@@ -67,6 +68,7 @@ class MemoriesResource:
         tiers: Optional[List[MemoryTier]] = None,
         tags: Optional[List[str]] = None,
         min_score: Optional[float] = None,
+        temporal: Optional[TemporalFilter] = None,
         **kwargs: Any,
     ) -> List[MemorySearchResult]:
         options: SearchMemoriesOptions = {
@@ -76,6 +78,8 @@ class MemoriesResource:
             "minScore": min_score,
             **kwargs,
         }
+        if temporal is not None:
+            options["temporal"] = temporal
         payload: Dict[str, Any] = {"text": text}
         payload.update({k: v for k, v in options.items() if v is not None})
         response = self._client.request("POST", "/memories/query", body=payload)

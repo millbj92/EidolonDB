@@ -4,12 +4,12 @@ import { db } from '@/db/client';
 import { tenants } from '@/db/schema';
 import { stripe } from '@/lib/stripe';
 
-function planFromPriceId(priceId: string | null | undefined): 'free' | 'pro' | 'team' {
-  if (priceId && priceId === process.env['STRIPE_TEAM_PRICE_ID']) {
-    return 'team';
+function planFromPriceId(priceId: string | null | undefined): 'free' | 'developer' | 'growth' {
+  if (priceId && priceId === process.env['STRIPE_GROWTH_PRICE_ID']) {
+    return 'growth';
   }
-  if (priceId && priceId === process.env['STRIPE_PRO_PRICE_ID']) {
-    return 'pro';
+  if (priceId && priceId === process.env['STRIPE_DEVELOPER_PRICE_ID']) {
+    return 'developer';
   }
   return 'free';
 }
@@ -34,7 +34,7 @@ async function updateTenantFromCustomer(
 export async function POST(request: Request): Promise<Response> {
   if (!db) {
     return Response.json(
-      { message: 'DATABASE_URL is not configured. Add it before processing webhooks.' },
+      { message: 'USERS_DATABASE_URL is not configured. Add it before processing webhooks.' },
       { status: 503 }
     );
   }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyBaseLogger } from 'fastify';
+import { env } from '../../common/config/index.js';
 import { db, ingestTraces } from '../../common/db/index.js';
 import type { EmbeddingsProvider } from '../../common/embeddings/index.js';
 import { createMemory } from '../memories/index.js';
@@ -24,6 +25,17 @@ export interface IngestPipelineResult extends IngestResponse {
 interface IngestPipelineOptions {
   logger?: FastifyBaseLogger;
 }
+
+interface OpenAIChatCompletionsResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+}
+
+const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const SUMMARY_MODEL = 'gpt-4o-mini';
 
 function normalizeInput(rawInput: string): string {
   return rawInput
@@ -75,6 +87,65 @@ function extractSessionNumber(value: unknown): number | null {
   return null;
 }
 
+function buildSessionSummaryPrompt(acceptedMemories: AcceptedMemory[], sessionNumber: number): string {
+  const facts = acceptedMemories.map((memory) => `- ${memory.content}`).join('\n');
+  return [
+    'Summarize the following facts from a conversation session in one concise sentence.',
+    'Start with "Session [N]:" where N is the session number.',
+    '',
+    'Facts:',
+    facts,
+  ].join('\n');
+}
+
+async function generateSessionSummary(
+  acceptedMemories: AcceptedMemory[],
+  sessionNumber: number,
+  logger?: FastifyBaseLogger
+): Promise<string> {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('Session summary generation requires OPENAI_API_KEY');
+  }
+
+  const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: SUMMARY_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: buildSessionSummaryPrompt(acceptedMemories, sessionNumber),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    logger?.error(
+      {
+        status: response.status,
+        body: errorBody,
+      },
+      'OpenAI session summary request failed'
+    );
+    throw new Error(`OpenAI session summary failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as OpenAIChatCompletionsResponse;
+  const content = data.choices?.[0]?.message?.content?.trim();
+  if (!content) {
+    logger?.error({ response: data }, 'OpenAI session summary returned empty content');
+    throw new Error('OpenAI session summary returned empty content');
+  }
+
+  return content;
+}
+
 export async function runIngestPipeline(
   tenantId: string,
   request: IngestRequest,
@@ -90,6 +161,7 @@ export async function runIngestPipeline(
   const acceptedMemories: AcceptedMemory[] = [];
   const rejectedMemories: RejectedMemory[] = [];
   const traceCandidates: Record<string, unknown>[] = [];
+  let sessionSummary: string | undefined;
 
   const rawInput = request.content;
   const normalizedInput = normalizeInput(rawInput);
@@ -214,6 +286,37 @@ export async function runIngestPipeline(
         }
       }
     }
+
+    const sessionNumber = extractSessionNumber(request.metadata);
+    if (request.autoStore && acceptedMemories.length > 0 && sessionNumber !== null) {
+      try {
+        const summary = await generateSessionSummary(acceptedMemories, sessionNumber, logger);
+        await createMemory(
+          tenantId,
+          {
+            ownerEntityId: request.ownerEntityId,
+            tier: 'episodic',
+            content: summary,
+            importanceScore: 0.7,
+            tags: ['session-summary'],
+            metadata: {
+              sessionNumber,
+              source: request.source,
+              isSummary: true,
+            },
+          },
+          {
+            generateEmbedding: true,
+            embeddingsProvider,
+          }
+        );
+        sessionSummary = summary;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Session summary generation failed';
+        warnings.push(`Session summary skipped: ${message}`);
+        logger?.warn({ err: error }, 'Session summary generation failed; continuing ingest');
+      }
+    }
   } catch (error) {
     pipelineError = error instanceof Error ? error : new Error('Ingest pipeline failed');
     errors.push(pipelineError.message);
@@ -256,6 +359,7 @@ export async function runIngestPipeline(
     acceptedMemories,
     rejectedMemories,
     warnings,
+    sessionSummary,
     debug: {
       normalizedInput,
       extractorVersion: EXTRACTOR_VERSION,

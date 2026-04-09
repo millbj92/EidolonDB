@@ -34,6 +34,7 @@ export async function ingestRoutes(fastify: FastifyInstance) {
           acceptedMemories: result.acceptedMemories,
           rejectedMemories: result.rejectedMemories,
           warnings: result.warnings,
+          ...(result.sessionSummary ? { sessionSummary: result.sessionSummary } : {}),
           ...(input.debug ? { debug: result.debug } : {}),
         },
       });

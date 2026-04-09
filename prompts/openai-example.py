@@ -1,44 +1,18 @@
 import os
-from typing import List
+from typing import Dict, List
 
 from eidolondb import EidolonDB
 from openai import OpenAI
 
 SYSTEM_PROMPT_TEMPLATE = """
 You are an assistant that can use retrieved memory context from prior conversations.
-Treat the injected memory block as the source of truth for what was previously discussed.
-CRITICAL: Only say "I don't have any record of that" when the claimed fact is genuinely ABSENT from your retrieved memories. If the answer IS present in your retrieved memories, answer directly and confidently and do NOT include any "I don't have any record" preamble.
+Answer directly from context - no disclaimers, no "based on our conversation" preamble.
 
-Found-vs-not-found flow:
-1) User makes a claim or asks a recall question.
-2) Check retrieved memories.
-3) If found, answer directly and confidently with no disclaimer.
-4) If not found, say "I don't have any record of that being discussed."
+Questions asking what happened, what was decided, or what was discussed are RECALL REQUESTS - answer them directly from retrieved memories. Do not reject them.
 
-Distinguish these cases clearly:
+CRITICAL: Cross-check any past-session assertions against your retrieved memories before confirming them. If a user claims something was discussed but it is absent from retrieved memories, say so clearly.
 
-1) User is RECALLING something from a PAST session.
-- Common signals: "as we discussed", "you told me", "we decided", "last time", "previously", "as I mentioned before".
-- In this case, cross-check the claim against retrieved memories before confirming it.
-- If supported by memory, answer normally and reference the remembered details.
-- If not present in memory, proactively say so without waiting to be asked.
-
-2) User is sharing NEW information for the first time.
-- If there is no past-recall signal and the user is simply stating a fact, accept it as new information.
-- Acknowledge it and treat it as information to remember for this session.
-- Do not reject it just because it is not already in retrieved memories.
-
-3) User is UPDATING a preference or fact in THIS session.
-- Common signals: "update:", "going forward", "I now prefer", "I changed", "actually", "correction".
-- Treat the user's current in-session update as the new ground truth.
-- Do not reject an in-session update because older memories differ.
-- The user's latest in-session statement supersedes older stored preferences or facts.
-
-Use explicit phrasing like:
-- "I don't have any record of that being discussed."
-- "I don't see that in the retrieved context."
-
-Do not invent prior context that is not in the memory block.
+If memories contain conflicting information, mention both and note which is more recent.
 
 Retrieved memories:
 {{EIDOLONDB_RETRIEVED_MEMORIES}}
@@ -50,33 +24,43 @@ def build_system_prompt(memories: List[str]) -> str:
     return SYSTEM_PROMPT_TEMPLATE.replace("{{EIDOLONDB_RETRIEVED_MEMORIES}}", memory_block)
 
 
-def run_openai_turn(user_message: str) -> None:
-    # 1) Init EidolonDB + OpenAI clients
+# Increment this each new conversation. In production, read/write this from persistent storage (DB, file, etc.).
+active_session_number = 1
+
+
+def run_session(turns: List[Dict[str, str]]) -> None:
     db = EidolonDB(url="http://localhost:3000", tenant="my-app")
     openai = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    transcript: List[str] = []
 
-    # 2) Recall relevant memories for this turn
-    memories = db.recall(user_message, 10)
+    for turn in turns:
+        user_message = turn["user"]
+        memories = db.recall(user_message, 10, active_session_number) if active_session_number > 1 else []
+        system_prompt = build_system_prompt(memories)
 
-    # 3) Build system prompt with injected memories
-    system_prompt = build_system_prompt(memories)
+        completion = openai.chat.completions.create(
+            model="gpt-4.1-mini",
+            temperature=0,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        )
+        assistant_text = completion.choices[0].message.content or ""
+        print(f"Assistant: {assistant_text}")
+        transcript.extend([f"User: {user_message}", f"Assistant: {assistant_text}"])
 
-    # 4) Send prompt + user message to OpenAI
-    completion = openai.chat.completions.create(
-        model="gpt-4.1-mini",
-        temperature=0,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
+    db.ingest(
+        "\n".join(transcript),
+        source="chat",
+        metadata={"sessionNumber": active_session_number},
     )
-    assistant_text = completion.choices[0].message.content or ""
-    print(f"Assistant: {assistant_text}")
-
-    # 5) After session end, ingest transcript so it becomes memory
-    full_transcript_text = f"User: {user_message}\nAssistant: {assistant_text}"
-    db.ingest(full_transcript_text, source="chat")
 
 
 if __name__ == "__main__":
-    run_openai_turn("What agreement did we make about incident postmortems?")
+    run_session(
+        [
+            {"user": "What agreement did we make about incident postmortems?"},
+            {"user": "What decisions did we make in our last session?"},
+        ]
+    )

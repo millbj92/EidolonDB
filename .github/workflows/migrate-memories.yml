@@ -1,0 +1,37 @@
+name: Migrate Memory Database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/server/src/common/db/schema.ts'
+      - 'apps/server/drizzle/**'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Note: drizzle-kit migrate reads MEMORIES_DATABASE_URL from env.
+      # Set NEON_MEMORIES_DATABASE_URL in GitHub → Settings → Secrets → Actions → production environment.
+      - name: Run memory DB migrations
+        working-directory: apps/server
+        run: pnpm db:migrate
+        env:
+          MEMORIES_DATABASE_URL: ${{ secrets.NEON_MEMORIES_DATABASE_URL }}

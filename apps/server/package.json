@@ -13,7 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "test": "DATABASE_URL=postgres://postgres:postgres@localhost:5432/eidolondb_test OPENAI_API_KEY=test-key vitest run"
+    "test": "MEMORIES_DATABASE_URL=postgres://postgres:postgres@localhost:5432/eidolondb_test OPENAI_API_KEY=test-key vitest run"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

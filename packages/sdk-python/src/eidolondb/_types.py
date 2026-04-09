@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 MemoryTier = Literal["short_term", "episodic", "semantic"]
 DedupStatus = Literal["new", "duplicate", "near_duplicate", "conflict", "needs_review"]
@@ -54,6 +54,21 @@ class MemoryQueryWeights(TypedDict, total=False):
     importance: float
 
 
+class SessionRelativeFilter(TypedDict, total=False):
+    mode: Literal["session-relative"]
+    sessionNumber: int
+    sessionOffset: int
+
+
+class CalendarRelativeFilter(TypedDict):
+    mode: Literal["calendar-relative"]
+    start: str
+    end: str
+
+
+TemporalFilter = Union[SessionRelativeFilter, CalendarRelativeFilter]
+
+
 class SearchMemoriesOptions(TypedDict, total=False):
     k: int
     ownerEntityId: str
@@ -64,6 +79,7 @@ class SearchMemoriesOptions(TypedDict, total=False):
     createdBefore: str
     weights: MemoryQueryWeights
     minScore: float
+    temporal: TemporalFilter
 
 
 class ListMemoriesOptions(TypedDict, total=False):

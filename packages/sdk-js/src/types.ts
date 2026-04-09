@@ -47,6 +47,20 @@ export interface MemoryQueryWeights {
   importance?: number;
 }
 
+export interface SessionRelativeFilter {
+  mode: 'session-relative';
+  sessionNumber?: number;
+  sessionOffset?: number;
+}
+
+export interface CalendarRelativeFilter {
+  mode: 'calendar-relative';
+  start: string;
+  end: string;
+}
+
+export type TemporalFilter = SessionRelativeFilter | CalendarRelativeFilter;
+
 export interface SearchMemoriesOptions {
   k?: number;
   sessionId?: string;
@@ -59,6 +73,7 @@ export interface SearchMemoriesOptions {
   createdBefore?: string;
   weights?: MemoryQueryWeights;
   minScore?: number;
+  temporal?: TemporalFilter;
 }
 
 export interface ListMemoriesOptions {

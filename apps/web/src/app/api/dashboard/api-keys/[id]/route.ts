@@ -12,7 +12,7 @@ export async function DELETE(
     return Response.json({ message: 'Tenant not found.' }, { status: 404 });
   }
   if (!db) {
-    return Response.json({ message: 'DATABASE_URL is not configured.' }, { status: 503 });
+    return Response.json({ message: 'USERS_DATABASE_URL is not configured.' }, { status: 503 });
   }
 
   const { id } = await context.params;

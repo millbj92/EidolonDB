@@ -62,6 +62,7 @@ export const ingestResponseSchema = z.object({
   acceptedMemories: z.array(acceptedMemorySchema),
   rejectedMemories: z.array(rejectedMemorySchema),
   warnings: z.array(z.string()),
+  sessionSummary: z.string().optional(),
   debug: z.object({
     normalizedInput: z.string(),
     extractorVersion: z.string(),

@@ -157,6 +157,36 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      <section className="section container" id="pricing">
+        <h2>Pricing</h2>
+        <p className="muted" style={{ marginTop: 0, marginBottom: '1.5rem' }}>
+          Priced per memory operation. Every ingest, read, write, and query counts the same.
+        </p>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+          <article className="card">
+            <h3 style={{ marginBottom: '0.25rem' }}>🔵 Developer</h3>
+            <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1.3rem', color: '#e2e8f0' }}>$19/mo</p>
+            <p style={{ margin: '0 0 0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>200k ops/mo · all features · $0.25/100k overage</p>
+            <a className="btn btn-primary" href="/sign-up?plan=developer" style={{ textAlign: 'center', display: 'block' }}>Start building →</a>
+          </article>
+          <article className="card">
+            <h3 style={{ marginBottom: '0.25rem' }}>🟣 Growth</h3>
+            <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1.3rem', color: '#e2e8f0' }}>$99/mo</p>
+            <p style={{ margin: '0 0 0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>1M ops/mo · priority support · $0.10/100k overage</p>
+            <a className="btn" href="/sign-up?plan=growth" style={{ textAlign: 'center', display: 'block' }}>Scale up →</a>
+          </article>
+          <article className="card">
+            <h3 style={{ marginBottom: '0.25rem' }}>🏢 Enterprise</h3>
+            <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1.3rem', color: '#e2e8f0' }}>Custom</p>
+            <p style={{ margin: '0 0 0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>Unlimited ops · SLA · dedicated support</p>
+            <a className="btn" href="mailto:hello@eidolondb.com" style={{ textAlign: 'center', display: 'block' }}>Contact us →</a>
+          </article>
+        </div>
+        <p className="muted" style={{ fontSize: '0.82rem', textAlign: 'center' }}>
+          Free tier available for self-hosted. <a href="/pricing">See full pricing →</a>
+        </p>
+      </section>
+
       <section className="section container cta" id="start">
         <h2>Get started</h2>
         <pre className="install">

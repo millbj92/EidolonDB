@@ -38,7 +38,7 @@ The ingest module provides `POST /ingest`, an auto-extraction pipeline that conv
 
 ## Environment Variables
 
-- `DATABASE_URL` (required)
+- `MEMORIES_DATABASE_URL` (required)
 - `OPENAI_API_KEY` (required for LLM extraction and OpenAI embeddings)
 - `LOG_LEVEL` (standard server logging)
 

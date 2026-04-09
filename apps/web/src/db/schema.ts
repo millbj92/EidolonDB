@@ -14,6 +14,7 @@ export const tenants = pgTable('tenants', {
     .references(() => users.id, { onDelete: 'cascade' }),
   slug: text('slug').notNull().unique(),
   plan: text('plan').notNull().default('free'),
+  opsCapOverride: integer('ops_cap_override'),
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -40,10 +41,8 @@ export const usage = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
     month: text('month').notNull(),
-    memoriesCreated: integer('memories_created').notNull().default(0),
-    queries: integer('queries').notNull().default(0),
-    ingestCalls: integer('ingest_calls').notNull().default(0),
-    lifecycleRuns: integer('lifecycle_runs').notNull().default(0),
+    opsTotal: integer('ops_total').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [unique('usage_tenant_month_unique').on(table.tenantId, table.month)]
 );

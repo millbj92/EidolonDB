@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text, timestamp, uuid, boolean } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable(
   'users',
@@ -20,6 +20,7 @@ export const tenants = pgTable(
     slug: text('slug').notNull().unique(),
     name: text('name').notNull(),
     plan: text('plan').notNull().default('free'),
+    opsCapOverride: integer('ops_cap_override'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -53,12 +54,12 @@ export const usage = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
     month: text('month').notNull(),
-    memoriesCreated: integer('memories_created').notNull().default(0),
-    queries: integer('queries').notNull().default(0),
-    ingestCalls: integer('ingest_calls').notNull().default(0),
-    lifecycleRuns: integer('lifecycle_runs').notNull().default(0),
+    opsTotal: integer('ops_total').notNull().default(0),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index('usage_tenant_month_idx').on(table.tenantId, table.month)]
+  (table) => [
+    index('usage_tenant_month_idx').on(table.tenantId, table.month),
+    unique('usage_tenant_month_unique').on(table.tenantId, table.month),
+  ]
 );

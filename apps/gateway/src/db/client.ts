@@ -5,8 +5,8 @@ import * as schema from './schema.js';
 
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
-if (env.DATABASE_URL) {
-  const sql = neon(env.DATABASE_URL);
+if (env.USERS_DATABASE_URL) {
+  const sql = neon(env.USERS_DATABASE_URL);
   dbInstance = drizzle(sql, { schema });
 }
 

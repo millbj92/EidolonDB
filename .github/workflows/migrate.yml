@@ -1,0 +1,38 @@
+name: Migrate Database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/src/db/schema.ts'
+      - 'apps/web/drizzle/**'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        working-directory: apps/web
+        run: pnpm db:migrate
+        env:
+          # NEON_USERS_DATABASE_URL: Neon connection string for the users/billing DB.
+          # Set this in GitHub → Settings → Secrets → Actions → production environment.
+          # The memory DB (EidolonDB internal) is NOT migrated here — it has its own migration process.
+          USERS_DATABASE_URL: ${{ secrets.NEON_USERS_DATABASE_URL }}

@@ -27,7 +27,7 @@ services:
       NODE_ENV: development
       PORT: 3000
       HOST: 0.0.0.0
-      DATABASE_URL: postgresql://eidolon:eidolon@localhost:5492/eidolondb
+      MEMORIES_DATABASE_URL: postgresql://eidolon:eidolon@localhost:5492/eidolondb
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       postgres:

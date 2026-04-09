@@ -26,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!db) {
     return Response.json(
-      { message: 'DATABASE_URL is not configured. Add it before processing webhooks.' },
+      { message: 'USERS_DATABASE_URL is not configured. Add it before processing webhooks.' },
       { status: 503 }
     );
   }

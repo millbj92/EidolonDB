@@ -2,9 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { env } from './config.js';
-import { checkQuota, getPlanRpm, lookupApiKey, incrementUsage } from './db/queries.js';
-
-type RequestType = 'memory_write' | 'query' | 'ingest' | 'lifecycle' | 'other';
+import { checkQuota, currentMonthKey, getPlanRpm, incrementOps, lookupApiKey } from './db/queries.js';
 
 type RequestWithTenant = {
   tenantId: string;
@@ -13,25 +11,6 @@ type RequestWithTenant = {
 };
 
 const planRateState = new Map<string, { count: number; windowStart: number }>();
-
-function classifyRequest(method: string, path: string): RequestType {
-  if (path.startsWith('/ingest')) return 'ingest';
-  if (path.startsWith('/lifecycle')) return 'lifecycle';
-  if (path === '/memories/query' && method === 'POST') return 'query';
-  if (path.startsWith('/memories') && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-    return 'memory_write';
-  }
-  return 'other';
-}
-
-function mapRequestTypeToUsageField(
-  type: Exclude<RequestType, 'other'>
-): 'memoriesCreated' | 'queries' | 'ingestCalls' | 'lifecycleRuns' {
-  if (type === 'memory_write') return 'memoriesCreated';
-  if (type === 'query') return 'queries';
-  if (type === 'ingest') return 'ingestCalls';
-  return 'lifecycleRuns';
-}
 
 function extractRawApiKey(headerValue?: string): string | null {
   if (!headerValue) {
@@ -132,7 +111,7 @@ fastify.addHook('preHandler', async (request, reply) => {
     return;
   }
 
-  if (!env.DATABASE_URL) {
+  if (!env.USERS_DATABASE_URL) {
     return sendError(reply, 503, 'Auth database not configured', 'INTERNAL_ERROR', request.id);
   }
 
@@ -151,7 +130,7 @@ fastify.addHook('preHandler', async (request, reply) => {
     return sendError(reply, 429, 'Too many requests', 'RATE_LIMITED', request.id);
   }
 
-  const quota = await checkQuota(keyInfo.tenantSlug, keyInfo.plan);
+  const quota = await checkQuota(keyInfo.tenantId, keyInfo.plan);
   if (!quota.allowed) {
     return sendError(reply, 429, 'Monthly quota exceeded', 'QUOTA_EXCEEDED', request.id, {
       upgrade: 'https://eidolondb.com/pricing',
@@ -184,6 +163,7 @@ for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const) {
 
 async function proxyRequest(request: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) {
   const tenantSlug = (request as typeof request & RequestWithTenant).tenantSlug;
+  const tenantId = (request as typeof request & RequestWithTenant).tenantId;
   const targetPath = request.raw.url ?? request.url;
   const targetUrl = `${env.EIDOLONDB_INTERNAL_URL}${targetPath}`;
 
@@ -202,12 +182,8 @@ async function proxyRequest(request: import('fastify').FastifyRequest, reply: im
           : undefined,
     });
 
-    const pathOnly = request.url.split('?')[0] ?? request.url;
-    const reqType = classifyRequest(request.method, pathOnly);
-    if (reqType !== 'other') {
-      incrementUsage(tenantSlug, mapRequestTypeToUsageField(reqType)).catch(() => {
-        // Non-blocking best effort.
-      });
+    if (response.status < 500 && !env.DEV_BYPASS_AUTH) {
+      Promise.resolve(incrementOps(tenantId, currentMonthKey(), 1)).catch(console.error);
     }
 
     const contentType = response.headers.get('content-type') ?? 'application/json';
@@ -224,8 +200,10 @@ fastify.setErrorHandler((error, request, reply) => {
   return sendError(reply, 500, 'An unexpected error occurred', 'INTERNAL_ERROR', request.id);
 });
 
-if (!env.DATABASE_URL && !env.DEV_BYPASS_AUTH) {
-  fastify.log.warn('DATABASE_URL is not set and DEV_BYPASS_AUTH=false; auth lookups will fail until database is configured.');
+if (!env.USERS_DATABASE_URL && !env.DEV_BYPASS_AUTH) {
+  fastify.log.warn(
+    'USERS_DATABASE_URL is not set and DEV_BYPASS_AUTH=false; auth lookups will fail until database is configured.'
+  );
 }
 
 try {
