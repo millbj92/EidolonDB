@@ -1,3 +1,4 @@
+// Users/billing schema — Neon DB (USERS_DATABASE_URL)
 import { integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {

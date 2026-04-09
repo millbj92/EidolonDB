@@ -1,3 +1,4 @@
+// Memory schema — EidolonDB internal DB (MEMORIES_DATABASE_URL)
 import {
   pgTable,
   text,
