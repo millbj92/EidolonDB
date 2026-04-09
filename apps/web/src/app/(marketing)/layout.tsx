@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { NavAuth } from '@/components/NavAuth';
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,7 +15,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <Link href="/#evals">Evals</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/docs">Docs</Link>
-            <Link href="/sign-in">Sign in</Link>
+            <NavAuth />
           </nav>
         </div>
       </header>
