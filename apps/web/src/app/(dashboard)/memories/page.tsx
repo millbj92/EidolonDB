@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type MemoryResult = {
   id: string;
@@ -57,22 +57,21 @@ function parseResults(payload: unknown): MemoryResult[] {
 
 export default function MemoriesPage() {
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<MemoryResult[]>([]);
 
-  async function runSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function loadMemories(q = '') {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/dashboard/memories?q=${encodeURIComponent(query)}&limit=20`, {
+      const response = await fetch(`/api/dashboard/memories?q=${encodeURIComponent(q)}&limit=20`, {
         cache: 'no-store',
       });
       const payload = (await response.json()) as MemoriesResponse;
       if (!response.ok) {
-        throw new Error(payload.message ?? 'Failed to search memories.');
+        throw new Error(payload.message ?? 'Failed to load memories.');
       }
       setResults(parseResults(payload));
     } catch (err) {
@@ -82,12 +81,28 @@ export default function MemoriesPage() {
     }
   }
 
+  useEffect(() => {
+    void loadMemories();
+  }, []);
+
+  async function runSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void loadMemories(query);
+  }
+
   return (
     <div className="stack">
       <section className="panel">
-        <h1 style={{ marginBottom: '0.4rem' }}>Memories</h1>
+        <h1 style={{ marginBottom: '0.4rem' }}>
+          Memories
+          {!loading && results.length > 0 ? (
+            <span className="badge" style={{ marginLeft: '0.75rem', fontSize: '0.75rem', verticalAlign: 'middle' }}>
+              {results.length} shown
+            </span>
+          ) : null}
+        </h1>
         <p className="muted" style={{ marginTop: 0 }}>
-          Search tenant memories and inspect semantic tiers.
+          Browse and search your tenant's memory store.
         </p>
         <form className="row" onSubmit={runSearch}>
           <input
@@ -109,8 +124,11 @@ export default function MemoriesPage() {
       ) : null}
 
       <section className="stack">
-        {results.length === 0 ? (
-          <div className="empty">No memories yet. Run a search after ingesting data in your tenant.</div>
+        {loading ? (
+          <div className="empty">Loading memories...</div>
+        ) : null}
+        {!loading && results.length === 0 ? (
+          <div className="empty">No memories found.</div>
         ) : null}
         {results.map((memory) => (
           <article key={memory.id} className="panel">

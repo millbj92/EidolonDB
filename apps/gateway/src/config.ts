@@ -7,6 +7,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   USERS_DATABASE_URL: z.string().optional(),
   EIDOLONDB_INTERNAL_URL: z.string().default('http://localhost:3000'),
+  GATEWAY_SERVICE_KEY: z.string().optional(),
   DEV_BYPASS_AUTH: z.string().optional().transform(v => v === 'true' || v === '1').default('false' as never),
   DEV_TENANT_ID: z.string().default('openclaw'),
 });

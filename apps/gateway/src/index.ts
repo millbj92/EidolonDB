@@ -8,6 +8,7 @@ type RequestWithTenant = {
   tenantId: string;
   tenantSlug: string;
   plan: string;
+  isServiceKey?: boolean;
 };
 
 const planRateState = new Map<string, { count: number; windowStart: number }>();
@@ -50,7 +51,7 @@ function sendError(
   reply: { status: (code: number) => { send: (payload: unknown) => unknown } },
   statusCode: number,
   message: string,
-  code: 'UNAUTHORIZED' | 'RATE_LIMITED' | 'QUOTA_EXCEEDED' | 'UPSTREAM_ERROR' | 'INTERNAL_ERROR',
+  code: 'BAD_REQUEST' | 'UNAUTHORIZED' | 'RATE_LIMITED' | 'QUOTA_EXCEEDED' | 'UPSTREAM_ERROR' | 'INTERNAL_ERROR',
   requestId?: string,
   extra?: Record<string, unknown>
 ) {
@@ -109,6 +110,25 @@ fastify.addHook('preHandler', async (request, reply) => {
     (request as typeof request & RequestWithTenant).tenantSlug = context.tenantSlug;
     (request as typeof request & RequestWithTenant).plan = context.plan;
     return;
+  }
+
+  // Service key — allows dashboard server-side queries to scope to any tenant
+  const serviceKey = env.GATEWAY_SERVICE_KEY;
+  if (serviceKey) {
+    const rawKey = extractRawApiKey(request.headers.authorization);
+    if (rawKey === serviceKey) {
+      const tenantSlug = request.headers['x-tenant-slug'];
+      if (!tenantSlug || typeof tenantSlug !== 'string') {
+        return sendError(reply, 400, 'x-tenant-slug header required with service key', 'BAD_REQUEST', request.id);
+      }
+      // Set tenant context from the explicit header — skip DB lookup
+      request.headers['x-tenant-id'] = tenantSlug;
+      (request as typeof request & RequestWithTenant).tenantId = tenantSlug;
+      (request as typeof request & RequestWithTenant).tenantSlug = tenantSlug;
+      (request as typeof request & RequestWithTenant).plan = 'enterprise'; // service key gets highest limits
+      (request as typeof request & RequestWithTenant).isServiceKey = true;
+      return; // skip normal auth
+    }
   }
 
   if (!env.USERS_DATABASE_URL) {
@@ -182,7 +202,7 @@ async function proxyRequest(request: import('fastify').FastifyRequest, reply: im
           : undefined,
     });
 
-    if (response.status < 500 && !env.DEV_BYPASS_AUTH) {
+    if (response.status < 500 && !env.DEV_BYPASS_AUTH && !(request as typeof request & RequestWithTenant).isServiceKey) {
       Promise.resolve(incrementOps(tenantId, currentMonthKey(), 1)).catch(console.error);
     }
 
