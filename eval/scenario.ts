@@ -1,4 +1,4 @@
-export type AgentType = "baseline" | "eidolondb";
+export type AgentType = "baseline" | "rag_baseline" | "eidolondb";
 
 export interface TranscriptMessage {
   role: "user" | "assistant";
@@ -25,7 +25,6 @@ export interface AgentMetrics {
   maxRecallScore: number;
   recallAccuracy: number;
   hallucinationScore: number;
-  onboardingTurns: number;
   overallScore: number;
 }
 
@@ -34,6 +33,7 @@ export interface EvalResult {
   runId: string;
   scenario: string;
   baseline: AgentMetrics;
+  rag_baseline: AgentMetrics;
   eidolondb: AgentMetrics;
   delta: {
     recallAccuracy: number;
@@ -46,6 +46,11 @@ export interface EvalResult {
 
 export interface AggregateMetrics {
   baseline: {
+    recallAccuracy: number;
+    hallucinationScore: number;
+    overallScore: number;
+  };
+  rag_baseline: {
     recallAccuracy: number;
     hallucinationScore: number;
     overallScore: number;
@@ -95,6 +100,28 @@ export interface ScenarioDefinition {
   questions: Record<string, RecallQuestionDefinition>;
 }
 
+const HALLUCINATION_REQUIRED_KEYWORDS: string[][] = [
+  [
+    "no record",
+    "not discussed",
+    "don't recall",
+    "didn't discuss",
+    "wasn't discussed",
+    "i have no",
+    "i don't have any record",
+    "no, you didn't mention",
+    "you never mentioned",
+    "that wasn't mentioned",
+    "i don't see that",
+    "i don't have that",
+    "that doesn't match",
+    "that contradicts",
+    "you didn't say",
+    "no, you didn't",
+    "wasn't mentioned",
+  ],
+];
+
 export const PROJECT_ASSISTANT_V1: ScenarioDefinition = {
   name: "project-assistant-v1",
   questions: {
@@ -131,13 +158,13 @@ export const PROJECT_ASSISTANT_V1: ScenarioDefinition = {
     s3_q3_proactive_skepticism: {
       id: "s3_q3_proactive_skepticism",
       question: "Jordan pushed a fix for the auth bug we discussed.",
-      requiredKeywords: [["don't have", "no record", "not discussed", "don't recall", "didn't discuss", "wasn't discussed", "i don't remember", "no mention"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
     s3_q4_hallucination: {
       id: "s3_q4_hallucination",
       question: "Did we discuss an auth bug previously?",
-      requiredKeywords: [["no", "didn't", "did not", "never", "not discussed", "don't think", "do not think"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
   },
@@ -224,13 +251,13 @@ export const PERSONAL_ASSISTANT_V1: ScenarioDefinition = {
     p3_q2_proactive_false_premise: {
       id: "p3_q2_proactive_false_premise",
       question: "As I mentioned, I prefer early-morning meetings at 8 AM.",
-      requiredKeywords: [["don't have", "no record", "not mentioned", "don't recall", "didn't mention", "wasn't mentioned", "no mention"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
     p3_q3_explicit_false_premise: {
       id: "p3_q3_explicit_false_premise",
       question: "Did I ever say I prefer 8 AM meetings?",
-      requiredKeywords: [["no", "didn't", "did not", "never", "not mentioned", "do not recall", "don't recall"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
   },
@@ -311,13 +338,13 @@ export const TECHNICAL_SUPPORT_V1: ScenarioDefinition = {
     t3_q2_proactive_false_premise: {
       id: "t3_q2_proactive_false_premise",
       question: "You told me to disable SSL verification and it fixed the issue.",
-      requiredKeywords: [["don't have", "no record", "didn't tell", "never suggested", "not mentioned", "no mention"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
     t3_q3_explicit_false_premise: {
       id: "t3_q3_explicit_false_premise",
       question: "Did you ever tell me to disable SSL verification?",
-      requiredKeywords: [["no", "didn't", "did not", "never", "not mentioned", "don't recall", "do not recall"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
   },
@@ -384,26 +411,32 @@ export const PREFERENCE_DRIFT_V1: ScenarioDefinition = {
     },
     d2_q3_updated_pref: {
       id: "d2_q3_updated_pref",
-      question: "I changed one preference in this session. What is my current UI theme preference now?",
-      requiredKeywords: [["light"]],
+      question: "What is my current UI theme preference?",
+      requiredKeywords: [["light mode", "light"]],
       kind: "recall",
     },
     d3_q1_temporal_correctness: {
       id: "d3_q1_temporal_correctness",
       question: "What's my current UI theme preference?",
-      requiredKeywords: [["light"]],
+      requiredKeywords: [["light mode", "light"]],
       kind: "recall",
     },
-    d3_q2_proactive_false_premise: {
-      id: "d3_q2_proactive_false_premise",
+    d3_q2_editor_pref: {
+      id: "d3_q2_editor_pref",
+      question: "What editor keybinding do I use?",
+      requiredKeywords: [["vim"]],
+      kind: "recall",
+    },
+    d3_q3_proactive_false_premise: {
+      id: "d3_q3_proactive_false_premise",
       question: "As we discussed, I switched from Vim to Emacs.",
-      requiredKeywords: [["don't have", "no record", "not discussed", "didn't discuss", "didn't mention", "no mention"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
-    d3_q3_explicit_false_premise: {
-      id: "d3_q3_explicit_false_premise",
+    d3_q4_explicit_false_premise: {
+      id: "d3_q4_explicit_false_premise",
       question: "Did I ever say I switched to Emacs?",
-      requiredKeywords: [["no", "didn't", "did not", "never", "not discussed", "don't recall", "do not recall"]],
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
       kind: "hallucination",
     },
   },
@@ -426,9 +459,9 @@ export const PREFERENCE_DRIFT_V1: ScenarioDefinition = {
           content: "What editor preference did I originally mention?",
           recallQuestionId: "d2_q2_editor_pref",
         },
-        { content: "Update: I now prefer light mode going forward." },
+        { content: "Update: I'm switching to light mode from now on. Please remember this." },
         {
-          content: "I changed one preference in this session. What is my current UI theme preference now?",
+          content: "What is my current UI theme preference?",
           recallQuestionId: "d2_q3_updated_pref",
         },
       ],
@@ -441,12 +474,330 @@ export const PREFERENCE_DRIFT_V1: ScenarioDefinition = {
           recallQuestionId: "d3_q1_temporal_correctness",
         },
         {
+          content: "What editor keybinding do I use?",
+          recallQuestionId: "d3_q2_editor_pref",
+        },
+        {
           content: "As we discussed, I switched from Vim to Emacs.",
-          recallQuestionId: "d3_q2_proactive_false_premise",
+          recallQuestionId: "d3_q3_proactive_false_premise",
         },
         {
           content: "Did I ever say I switched to Emacs?",
-          recallQuestionId: "d3_q3_explicit_false_premise",
+          recallQuestionId: "d3_q4_explicit_false_premise",
+        },
+      ],
+    },
+  ],
+};
+
+export const AMBIGUOUS_RECALL_V1: ScenarioDefinition = {
+  name: "ambiguous-recall-v1",
+  questions: {
+    a2_q1_start_time: {
+      id: "a2_q1_start_time",
+      question: "What time does the team usually start work?",
+      requiredKeywords: [["10", "mid-morning", "morning"], ["around", "approximately", "usually"]],
+      kind: "recall",
+    },
+    a2_q2_storage: {
+      id: "a2_q2_storage",
+      question: "What storage approach are we using?",
+      requiredKeywords: [["document", "nosql", "mongo"], ["oriented", "based", "approach"]],
+      kind: "recall",
+    },
+    a2_q3_alex_pref: {
+      id: "a2_q3_alex_pref",
+      question: "What's Alex's coding preference?",
+      requiredKeywords: [["camel", "variable", "naming"], ["style", "preference"]],
+      kind: "recall",
+    },
+    a3_q1_false_claim: {
+      id: "a3_q1_false_claim",
+      question: "I mentioned we're using PostgreSQL.",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+    a3_q2_false_question: {
+      id: "a3_q2_false_question",
+      question: "Did I say PostgreSQL?",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "The team usually kicks things off around mid-morning." },
+        { content: "We're leaning toward a document-oriented approach for storage." },
+        {
+          content:
+            "The lead is Alex - they're pretty particular about code style, specifically around how variables are named.",
+        },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        {
+          content: "What time does the team usually start work?",
+          recallQuestionId: "a2_q1_start_time",
+        },
+        {
+          content: "What storage approach are we using?",
+          recallQuestionId: "a2_q2_storage",
+        },
+        {
+          content: "What's Alex's coding preference?",
+          recallQuestionId: "a2_q3_alex_pref",
+        },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "I mentioned we're using PostgreSQL.",
+          recallQuestionId: "a3_q1_false_claim",
+        },
+        {
+          content: "Did I say PostgreSQL?",
+          recallQuestionId: "a3_q2_false_question",
+        },
+      ],
+    },
+  ],
+};
+
+export const CONTRADICTORY_MEMORY_V1: ScenarioDefinition = {
+  name: "contradictory-memory-v1",
+  questions: {
+    c2_q1_port_now: {
+      id: "c2_q1_port_now",
+      question: "What port is the API on now?",
+      requiredKeywords: [["3000"]],
+      kind: "recall",
+    },
+    c2_q2_lang_now: {
+      id: "c2_q2_lang_now",
+      question: "What language are we using?",
+      requiredKeywords: [["go", "golang"]],
+      kind: "recall",
+    },
+    c2_q3_port_original: {
+      id: "c2_q3_port_original",
+      question: "What port did we originally plan?",
+      requiredKeywords: [["8080", "original", "initially", "first"]],
+      kind: "recall",
+    },
+    c2_q4_deploy_target: {
+      id: "c2_q4_deploy_target",
+      question: "What's the deploy target?",
+      requiredKeywords: [["aws", "amazon"]],
+      kind: "recall",
+    },
+    c3_q1_false_claim: {
+      id: "c3_q1_false_claim",
+      question: "As I mentioned, we're using Python.",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+    c3_q2_python_override: {
+      id: "c3_q2_python_override",
+      question: "Did we ever discuss Python?",
+      requiredKeywords: [["python"], ["changed", "switched", "moved", "updated", "go", "golang"]],
+      kind: "recall",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "The API will run on port 8080." },
+        { content: "We're using Python for the backend." },
+        { content: "The deploy target is AWS." },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        { content: "Actually, we changed the port to 3000." },
+        { content: "We also moved to Go for the backend - Python was too slow." },
+        {
+          content: "What port is the API on now?",
+          recallQuestionId: "c2_q1_port_now",
+        },
+        {
+          content: "What language are we using?",
+          recallQuestionId: "c2_q2_lang_now",
+        },
+        {
+          content: "What port did we originally plan?",
+          recallQuestionId: "c2_q3_port_original",
+        },
+        {
+          content: "What's the deploy target?",
+          recallQuestionId: "c2_q4_deploy_target",
+        },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "As I mentioned, we're using Python.",
+          recallQuestionId: "c3_q1_false_claim",
+        },
+        {
+          content: "Did we ever discuss Python?",
+          recallQuestionId: "c3_q2_python_override",
+        },
+      ],
+    },
+  ],
+};
+
+export const INCOMPLETE_RECALL_V1: ScenarioDefinition = {
+  name: "incomplete-recall-v1",
+  questions: {
+    i2_q1_project_and_goal: {
+      id: "i2_q1_project_and_goal",
+      question: "What's the project called and what does it do?",
+      requiredKeywords: [["atlas"], ["pipeline", "data"]],
+      kind: "recall",
+    },
+    i2_q2_stack: {
+      id: "i2_q2_stack",
+      question: "What's the full tech stack?",
+      requiredKeywords: [["python"], ["airflow"], ["dbt"], ["snowflake"]],
+      kind: "recall",
+    },
+    i2_q3_team: {
+      id: "i2_q3_team",
+      question: "Who are the team members?",
+      requiredKeywords: [["morgan"], ["riley"], ["casey"]],
+      kind: "recall",
+    },
+    i2_q4_sla: {
+      id: "i2_q4_sla",
+      question: "What's the SLA?",
+      requiredKeywords: [["2 hours", "two hours", "2-hour"], ["pipeline", "complete", "finish"]],
+      kind: "recall",
+    },
+    i2_q5_phase: {
+      id: "i2_q5_phase",
+      question: "What phase are we in?",
+      requiredKeywords: [["design"], ["no code", "not started", "planning"]],
+      kind: "recall",
+    },
+    i3_q1_false_claim: {
+      id: "i3_q1_false_claim",
+      question: "As we discussed, we already have code in production.",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+    i3_q2_code_written: {
+      id: "i3_q2_code_written",
+      question: "Did we say any code has been written?",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "Project name is Atlas. We're building a data pipeline." },
+        { content: "Stack: Python 3.12, Apache Airflow, dbt, Snowflake." },
+        { content: "Team: Morgan (data engineer), Riley (analytics), Casey (lead)." },
+        { content: "SLA: pipelines must complete within 2 hours of data landing." },
+        { content: "We're in the design phase - no code written yet." },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        {
+          content: "What's the project called and what does it do?",
+          recallQuestionId: "i2_q1_project_and_goal",
+        },
+        {
+          content: "What's the full tech stack?",
+          recallQuestionId: "i2_q2_stack",
+        },
+        {
+          content: "Who are the team members?",
+          recallQuestionId: "i2_q3_team",
+        },
+        {
+          content: "What's the SLA?",
+          recallQuestionId: "i2_q4_sla",
+        },
+        {
+          content: "What phase are we in?",
+          recallQuestionId: "i2_q5_phase",
+        },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "As we discussed, we already have code in production.",
+          recallQuestionId: "i3_q1_false_claim",
+        },
+        {
+          content: "Did we say any code has been written?",
+          recallQuestionId: "i3_q2_code_written",
+        },
+      ],
+    },
+  ],
+};
+
+export const TEMPORAL_SESSION_V1: ScenarioDefinition = {
+  name: "temporal-session-v1",
+  questions: {
+    ts3_q1_last_session: {
+      id: "ts3_q1_last_session",
+      question: "What did we do last session?",
+      requiredKeywords: [["atlas"], ["go", "golang"], ["8080"], ["morgan"]],
+      kind: "recall",
+    },
+    ts3_q2_false_premise: {
+      id: "ts3_q2_false_premise",
+      question: "As I mentioned last session, we're using Python.",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "Project Orion uses a Python backend." },
+        { content: "Project Orion runs on port 5000." },
+        { content: "Dana is the lead for Project Orion." },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        { content: "Project Atlas uses a Go backend." },
+        { content: "Project Atlas runs on port 8080." },
+        { content: "Morgan is the lead for Project Atlas." },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "What did we do last session?",
+          recallQuestionId: "ts3_q1_last_session",
+        },
+        {
+          content: "As I mentioned last session, we're using Python.",
+          recallQuestionId: "ts3_q2_false_premise",
         },
       ],
     },
@@ -458,4 +809,8 @@ export const SCENARIOS: ScenarioDefinition[] = [
   PERSONAL_ASSISTANT_V1,
   TECHNICAL_SUPPORT_V1,
   PREFERENCE_DRIFT_V1,
+  AMBIGUOUS_RECALL_V1,
+  CONTRADICTORY_MEMORY_V1,
+  INCOMPLETE_RECALL_V1,
+  TEMPORAL_SESSION_V1,
 ];

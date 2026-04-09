@@ -80,6 +80,7 @@ export const memories = pgTable('memories', {
   recencyScore: real('recency_score').default(1.0),
   accessCount: integer('access_count').default(0),
   retrievalCount: integer('retrieval_count').default(0),
+  sessionNumber: integer('session_number'),
   lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }),
   lastRetrievedAt: timestamp('last_retrieved_at', { withTimezone: true }),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
@@ -90,6 +91,7 @@ export const memories = pgTable('memories', {
   index('memories_tenant_id_idx').on(table.tenantId),
   index('memories_owner_entity_id_idx').on(table.ownerEntityId),
   index('memories_tier_idx').on(table.tier),
+  index('memories_tenant_session_number_idx').on(table.tenantId, table.sessionNumber),
 ]);
 
 // Retrieval events table

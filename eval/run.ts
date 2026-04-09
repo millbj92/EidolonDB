@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import {
   createBaselineAgent,
+  createRagBaselineAgent,
   createEidolonDbAgent,
   cleanupEvalTenantMemories,
   type EvalAgent,
@@ -59,6 +60,10 @@ function compactEvalResult(result: EvalResult): EvalResult {
       ...result.baseline,
       sessions: compactSessions(result.baseline.sessions),
     },
+    rag_baseline: {
+      ...result.rag_baseline,
+      sessions: compactSessions(result.rag_baseline.sessions),
+    },
     eidolondb: {
       ...result.eidolondb,
       sessions: compactSessions(result.eidolondb.sessions),
@@ -104,7 +109,8 @@ async function runAgentScenario(
 
       let assistantText = "";
       try {
-        assistantText = await agent.respond(llmMessages);
+        const enrichedMessages = agent.enrichMessages ? await agent.enrichMessages(llmMessages) : llmMessages;
+        assistantText = await agent.respond(enrichedMessages);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const tag = `[${scenario.name}] [${agent.agentType}] session ${session.sessionNumber} turn failed: ${message}`;
@@ -176,9 +182,15 @@ function computeAggregateMetrics(results: EvalResult[]): AggregateMetrics {
     hallucinationScore: average(results.map((result) => result.eidolondb.hallucinationScore)),
     overallScore: average(results.map((result) => result.eidolondb.overallScore)),
   };
+  const rag_baseline = {
+    recallAccuracy: average(results.map((result) => result.rag_baseline.recallAccuracy)),
+    hallucinationScore: average(results.map((result) => result.rag_baseline.hallucinationScore)),
+    overallScore: average(results.map((result) => result.rag_baseline.overallScore)),
+  };
 
   return {
     baseline,
+    rag_baseline,
     eidolondb,
     delta: {
       recallAccuracy: eidolondb.recallAccuracy - baseline.recallAccuracy,
@@ -232,9 +244,11 @@ async function main(): Promise<void> {
     }
 
     const baselineAgent = createBaselineAgent(config);
+    const ragBaselineAgent = createRagBaselineAgent(config);
     const eidolonAgent = createEidolonDbAgent(config);
 
     const baselineSessions = await runAgentScenario(scenario, baselineAgent, scenarioErrors);
+    const ragBaselineSessions = await runAgentScenario(scenario, ragBaselineAgent, scenarioErrors);
     const eidolonSessions = await runAgentScenario(scenario, eidolonAgent, scenarioErrors);
 
     for (const scenarioError of scenarioErrors) {
@@ -242,6 +256,7 @@ async function main(): Promise<void> {
     }
 
     const baseline = computeAgentMetrics("baseline", baselineSessions, scenario);
+    const rag_baseline = computeAgentMetrics("rag_baseline", ragBaselineSessions, scenario);
     const eidolondb = computeAgentMetrics("eidolondb", eidolonSessions, scenario);
 
     const scenarioResult: EvalResult = {
@@ -249,6 +264,7 @@ async function main(): Promise<void> {
       runId,
       scenario: scenario.name,
       baseline,
+      rag_baseline,
       eidolondb,
       delta: {
         recallAccuracy: eidolondb.recallAccuracy - baseline.recallAccuracy,
@@ -262,7 +278,7 @@ async function main(): Promise<void> {
     scenarioResults.push(scenarioResult);
 
     console.log(
-      `[${scenario.name}] Summary baseline(overall=${baseline.overallScore.toFixed(3)}) eidolondb(overall=${eidolondb.overallScore.toFixed(3)}) delta=${scenarioResult.delta.overallScore.toFixed(3)}`
+      `[${scenario.name}] Summary baseline(overall=${baseline.overallScore.toFixed(3)}) rag_baseline(overall=${rag_baseline.overallScore.toFixed(3)}) eidolondb(overall=${eidolondb.overallScore.toFixed(3)}) delta=${scenarioResult.delta.overallScore.toFixed(3)}`
     );
   }
 
@@ -291,6 +307,11 @@ async function main(): Promise<void> {
             recallAccuracy: scenario.baseline.recallAccuracy,
             hallucinationScore: scenario.baseline.hallucinationScore,
             overallScore: scenario.baseline.overallScore,
+          },
+          rag_baseline: {
+            recallAccuracy: scenario.rag_baseline.recallAccuracy,
+            hallucinationScore: scenario.rag_baseline.hallucinationScore,
+            overallScore: scenario.rag_baseline.overallScore,
           },
           eidolondb: {
             recallAccuracy: scenario.eidolondb.recallAccuracy,

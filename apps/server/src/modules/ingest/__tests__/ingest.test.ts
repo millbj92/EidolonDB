@@ -127,6 +127,50 @@ describe('runIngestPipeline', () => {
     expect(result.rejectedMemories[0]?.dedupStatus).toBe('duplicate');
   });
 
+  it('dedups per candidate and keeps novel candidates in the same ingest run', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeLlmResponse([
+      {
+        content: 'Nexus stack uses Fastify, TypeScript, and Postgres.',
+        memoryType: 'semantic',
+        importance: 0.8,
+        confidence: 0.9,
+        tags: ['nexus', 'stack'],
+        sourceSpan: 'Nexus stack uses Fastify, TypeScript, and Postgres.',
+        rationale: 'Captures stable architecture.',
+      },
+      {
+        content: 'Use Redis for caching with a five minute TTL.',
+        memoryType: 'semantic',
+        importance: 0.8,
+        confidence: 0.9,
+        tags: ['redis', 'caching'],
+        sourceSpan: 'Use Redis for caching with a five minute TTL.',
+        rationale: 'Captures a new infrastructure decision.',
+      },
+    ])));
+
+    mockCheckDedup
+      .mockResolvedValueOnce({
+        status: 'duplicate',
+        matchedMemoryId: 'existing-memory-id',
+        similarity: 0.98,
+      })
+      .mockResolvedValueOnce({
+        status: 'new',
+      });
+
+    const result = await runIngestPipeline('tenant-1', baseRequest);
+
+    expect(result.summary).toEqual({
+      candidates: 2,
+      accepted: 1,
+      rejected: 1,
+    });
+    expect(result.acceptedMemories[0]?.content).toContain('Redis');
+    expect(result.rejectedMemories[0]?.dedupStatus).toBe('duplicate');
+    expect(mockCheckDedup).toHaveBeenCalledTimes(2);
+  });
+
   it('skips persistence when autoStore is false', async () => {
     const result = await runIngestPipeline('tenant-1', {
       ...baseRequest,

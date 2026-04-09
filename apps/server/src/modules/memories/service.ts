@@ -1,4 +1,4 @@
-import { eq, and, inArray, gte, lte, sql, desc, asc } from 'drizzle-orm';
+import { eq, and, inArray, gte, lte, lt, sql, desc, asc } from 'drizzle-orm';
 import {
   db,
   memories,
@@ -70,6 +70,7 @@ export async function createMemory(
     importanceScore: input.importanceScore,
     recencyScore: 1.0,
     accessCount: 0,
+    sessionNumber: extractSessionNumberFromMetadata(input.metadata),
     metadata: input.metadata,
     tags: input.tags,
   };
@@ -147,6 +148,7 @@ export async function createMemoriesBatch(
       importanceScore: input.importanceScore,
       recencyScore: 1.0,
       accessCount: 0,
+      sessionNumber: extractSessionNumberFromMetadata(input.metadata),
       metadata: input.metadata,
       tags: input.tags,
     };
@@ -428,6 +430,26 @@ interface ScoredMemory {
   importanceScore: number;
 }
 
+function extractSessionNumberFromMetadata(metadata: Record<string, unknown> | undefined): number | null {
+  if (!metadata) {
+    return null;
+  }
+
+  const rawValue = metadata['sessionNumber'];
+  if (typeof rawValue === 'number' && Number.isInteger(rawValue)) {
+    return rawValue;
+  }
+
+  if (typeof rawValue === 'string') {
+    const parsed = Number.parseInt(rawValue, 10);
+    if (Number.isInteger(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Query memories using hybrid search (vector similarity + filters + scoring).
  *
@@ -453,9 +475,67 @@ export async function queryMemories(
     sourceArtifactId,
     createdAfter,
     createdBefore,
+    temporal,
     weights,
     minScore,
   } = input;
+
+  let temporalSessionNumber: number | null = null;
+  let temporalCreatedAfter: Date | null = null;
+  let temporalCreatedBeforeExclusive: Date | null = null;
+
+  try {
+    if (temporal?.mode === 'session-relative') {
+      if (typeof temporal.sessionNumber === 'number' && Number.isInteger(temporal.sessionNumber)) {
+        temporalSessionNumber = temporal.sessionNumber;
+      } else if (typeof temporal.sessionOffset === 'number' && Number.isInteger(temporal.sessionOffset)) {
+        const [maxSessionRow] = await db
+          .select({
+            maxSessionNumber: sql<number>`max(${memories.sessionNumber})::int`,
+          })
+          .from(memories)
+          .where(and(eq(memories.tenantId, tenantId), sql`${memories.sessionNumber} IS NOT NULL`));
+
+        const maxSessionNumber = maxSessionRow?.maxSessionNumber;
+        if (typeof maxSessionNumber !== 'number' || Number.isInteger(maxSessionNumber) === false) {
+          console.warn('Temporal session-relative filter returned no results: no session_number values found', {
+            tenantId,
+            temporal,
+          });
+          return [];
+        }
+
+        temporalSessionNumber = maxSessionNumber + temporal.sessionOffset;
+        if (temporalSessionNumber < 1) {
+          console.warn('Temporal session-relative filter resolved to a pre-history session', {
+            tenantId,
+            temporal,
+            maxSessionNumber,
+            resolvedSessionNumber: temporalSessionNumber,
+          });
+          return [];
+        }
+      } else {
+        throw new Error('Invalid temporal session-relative payload');
+      }
+    } else if (temporal?.mode === 'calendar-relative') {
+      temporalCreatedAfter = new Date(temporal.start);
+      temporalCreatedBeforeExclusive = new Date(temporal.end);
+
+      if (
+        Number.isNaN(temporalCreatedAfter.getTime()) ||
+        Number.isNaN(temporalCreatedBeforeExclusive.getTime()) ||
+        temporalCreatedAfter.getTime() >= temporalCreatedBeforeExclusive.getTime()
+      ) {
+        throw new Error('Invalid temporal calendar-relative range');
+      }
+    }
+  } catch (err) {
+    console.warn('Temporal filter failed, falling back to semantic search:', err);
+    temporalSessionNumber = null;
+    temporalCreatedAfter = null;
+    temporalCreatedBeforeExclusive = null;
+  }
 
   // Normalize weights
   const rawWeights = {
@@ -495,6 +575,15 @@ export async function queryMemories(
     }
     if (createdBefore) {
       conditions.push(`m.created_at <= '${createdBefore}'`);
+    }
+    if (temporalSessionNumber !== null) {
+      conditions.push(`m.session_number = ${temporalSessionNumber}`);
+    }
+    if (temporalCreatedAfter) {
+      conditions.push(`m.created_at >= '${temporalCreatedAfter.toISOString()}'`);
+    }
+    if (temporalCreatedBeforeExclusive) {
+      conditions.push(`m.created_at < '${temporalCreatedBeforeExclusive.toISOString()}'`);
     }
 
     const whereClause = conditions.join(' AND ');
@@ -558,6 +647,15 @@ export async function queryMemories(
     if (createdBefore) {
       conditions.push(lte(memories.createdAt, new Date(createdBefore)));
     }
+    if (temporalSessionNumber !== null) {
+      conditions.push(eq(memories.sessionNumber, temporalSessionNumber));
+    }
+    if (temporalCreatedAfter) {
+      conditions.push(gte(memories.createdAt, temporalCreatedAfter));
+    }
+    if (temporalCreatedBeforeExclusive) {
+      conditions.push(lt(memories.createdAt, temporalCreatedBeforeExclusive));
+    }
 
     const results = await db
       .select()
@@ -612,6 +710,15 @@ export async function queryMemories(
     .sort((a, b) => b.score - a.score)
     .slice(0, k);
 
+  if (temporal && finalResults.length === 0) {
+    console.warn('Temporal filter returned 0 results', {
+      tenantId,
+      temporal,
+      resolvedSessionNumber: temporalSessionNumber,
+      candidateCount: scoredMemories.length,
+    });
+  }
+
   return finalResults;
 }
 
@@ -629,6 +736,7 @@ function rowToMemory(row: Record<string, unknown>): Memory {
     recencyScore: row['recency_score'] != null ? Number(row['recency_score']) : null,
     accessCount: row['access_count'] != null ? Number(row['access_count']) : null,
     retrievalCount: row['retrieval_count'] != null ? Number(row['retrieval_count']) : null,
+    sessionNumber: row['session_number'] != null ? Number(row['session_number']) : null,
     lastAccessedAt: row['last_accessed_at'] ? new Date(String(row['last_accessed_at'])) : null,
     lastRetrievedAt: row['last_retrieved_at'] ? new Date(String(row['last_retrieved_at'])) : null,
     metadata: (row['metadata'] as Record<string, unknown>) ?? {},

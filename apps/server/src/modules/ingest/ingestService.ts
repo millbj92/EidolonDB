@@ -55,6 +55,26 @@ function traceCandidate(candidate: CandidateMemory, dedup: DedupResult | null, o
   };
 }
 
+function extractSessionNumber(value: unknown): number | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const raw = (value as Record<string, unknown>)['sessionNumber'];
+  if (typeof raw === 'number' && Number.isInteger(raw)) {
+    return raw;
+  }
+
+  if (typeof raw === 'string') {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isInteger(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 export async function runIngestPipeline(
   tenantId: string,
   request: IngestRequest,
@@ -158,6 +178,7 @@ export async function runIngestPipeline(
         }
 
         try {
+          const sessionNumber = extractSessionNumber(request.metadata);
           const { memory } = await createMemory(
             tenantId,
             {
@@ -170,6 +191,7 @@ export async function runIngestPipeline(
                 source: request.source,
                 actorId: request.actorId ?? null,
                 sessionId: request.sessionId ?? null,
+                sessionNumber,
                 sourceSpan: accepted.sourceSpan,
                 rationale: accepted.rationale,
                 ingestionMetadata: request.metadata ?? {},

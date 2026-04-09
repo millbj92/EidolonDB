@@ -28,6 +28,9 @@ interface ExtractOptions {
 function buildSystemPrompt(): string {
   return [
     'You extract memory-worthy facts from user text for an AI memory store.',
+    'Always extract from the provided input first; deduplication is handled later by the pipeline.',
+    'Do not decide whether a fact is already known or already stored.',
+    'Do not drop the entire input because it appears repetitive or overlapping.',
     'Extract only durable, decision-relevant information:',
     '- stable facts about people/projects/systems',
     '- goals, plans, decisions, commitments',
@@ -42,6 +45,12 @@ function buildSystemPrompt(): string {
     '- tags: short lowercase keywords array',
     '- sourceSpan: exact supporting snippet from input',
     '- rationale: brief reason this memory matters',
+    'Score importance (0..1) based on future retrieval utility:',
+    '- 0.8-1.0: Technology decisions, configuration values, named roles, explicit preferences, project names and goals — facts an agent will need verbatim in future sessions',
+    '- 0.5-0.7: Supporting context, background information, process details',
+    '- 0.3-0.4: Transient state, in-progress work, things likely to change soon',
+    '- 0.0-0.2: Filler, acknowledgments, conversational noise',
+    'Key rule: length does not determine importance. A single short declarative fact scores 0.9 if it will be needed in future sessions. Score on utility, not verbosity.',
     'Output MUST be strict JSON with shape:',
     '{"candidateMemories":[{...}]}',
     'Return only valid JSON. No prose. No markdown.',

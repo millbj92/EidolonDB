@@ -3,6 +3,30 @@ import { z } from 'zod';
 export const memoryTierSchema = z.enum(['short_term', 'episodic', 'semantic']);
 export type MemoryTier = z.infer<typeof memoryTierSchema>;
 
+const sessionRelativeByNumberSchema = z.object({
+  mode: z.literal('session-relative'),
+  sessionNumber: z.number().int().min(1),
+  sessionOffset: z.number().int().max(-1).optional(),
+});
+
+const sessionRelativeByOffsetSchema = z.object({
+  mode: z.literal('session-relative'),
+  sessionNumber: z.number().int().min(1).optional(),
+  sessionOffset: z.number().int().max(-1),
+});
+
+const calendarRelativeSchema = z.object({
+  mode: z.literal('calendar-relative'),
+  start: z.string().datetime(),
+  end: z.string().datetime(),
+});
+
+const temporalFilterSchema = z.union([
+  sessionRelativeByNumberSchema,
+  sessionRelativeByOffsetSchema,
+  calendarRelativeSchema,
+]);
+
 export const createMemorySchema = z.object({
   ownerEntityId: z.string().uuid().optional(),
   tier: memoryTierSchema,
@@ -54,6 +78,9 @@ export const memoryQuerySchema = z.object({
   // Time range
   createdAfter: z.string().datetime().optional(),
   createdBefore: z.string().datetime().optional(),
+
+  // Temporal filter (pre-filtered retrieval windows)
+  temporal: temporalFilterSchema.optional(),
 
   // Scoring weights (must sum to 1.0, will be normalized if not)
   weights: z.object({

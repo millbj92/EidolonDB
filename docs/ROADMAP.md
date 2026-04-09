@@ -454,3 +454,37 @@ Action:
 **Total: ~5.5 weeks of focused development** for a fundraise-ready product.
 
 With a solo developer working full-time, this is a 6-8 week timeline accounting for integration testing, edge cases, and iteration. With Codex helping (as it did today), potentially faster — the CRUD work and boilerplate goes ~5x faster with AI pair programming.
+
+---
+
+## Multi-Agent Memory Sharing — RBAC Design Notes
+
+**Added:** 2026-04-09
+
+Multi-agent sharing requires RBAC — not every agent should access every other agent's memory. This is non-negotiable for enterprise use.
+
+### Ownership (already exists)
+Every memory has `ownerEntityId`. That's the seed of the ownership model.
+
+### Sharing levels
+- **Private** (default) — only owning agent can read/write
+- **Shared read** — specific agents/groups can read, not write
+- **Shared read/write** — specific agents can contribute to a shared pool (e.g. team workspace)
+
+### Implementation: `memory_grants` table
+```
+(grantor_entity_id, grantee_entity_id, scope, permission)
+```
+- `scope`: `all` | `tier:episodic` | `tag:project-atlas` — share at entity, tier, or tag level (not per-memory — too expensive)
+- `permission`: `read` | `read_write`
+
+### Query impact
+`POST /memories/query` currently scopes to `tenant_id` only. With RBAC it must union:
+- Memories owned by the querying agent
+- Memories the querying agent has been granted access to
+
+### What to avoid
+Per-memory ACL rows — doesn't scale, makes retrieval expensive. Grants at entity/tag level are coarser but fast.
+
+### Priority
+P2 — implement after MCP integration. Blocker for enterprise team workspaces tier.
