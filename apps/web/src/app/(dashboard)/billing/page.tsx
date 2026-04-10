@@ -92,10 +92,19 @@ export default async function BillingPage({
             </p>
           </div>
           <div>
-            {plan === 'free' || plan === 'developer' ? (
+            {plan === 'free' ? (
               <a href="/api/dashboard/billing/checkout?plan=growth" className="btn btn-primary">
                 Upgrade to Growth →
               </a>
+            ) : plan === 'developer' ? (
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <a href="/api/dashboard/billing/checkout?plan=growth" className="btn btn-primary">
+                  Upgrade to Growth →
+                </a>
+                <a href="/api/dashboard/billing/portal" className="btn">
+                  Manage / Cancel
+                </a>
+              </div>
             ) : plan === 'growth' ? (
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <a href="/api/dashboard/billing/portal" className="btn">
