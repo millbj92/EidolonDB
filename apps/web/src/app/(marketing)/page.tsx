@@ -97,34 +97,44 @@ export default function MarketingPage() {
 
       <section className="section container" id="evals">
         <h2>Eval results</h2>
+        <p className="muted" style={{ marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem' }}>
+          8 multi-session scenarios · 3 sessions each · held-out LLM judge scoring recall quality and hallucination rejection.
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Metric</th>
-                <th>Without EidolonDB</th>
-                <th>With EidolonDB</th>
+                <th>System</th>
+                <th>Recall</th>
+                <th>Hallucination</th>
+                <th>Overall</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Recall accuracy</td>
-                <td>10%</td>
-                <td className="good">100%</td>
+                <td>No memory baseline</td>
+                <td>22%</td>
+                <td>0%</td>
+                <td>15.8%</td>
               </tr>
               <tr>
-                <td>Hallucinations</td>
-                <td>1</td>
-                <td className="good">0</td>
+                <td>RAG baseline *</td>
+                <td>93%</td>
+                <td>93%</td>
+                <td>93.3%</td>
               </tr>
               <tr>
-                <td>Overall score</td>
-                <td>6%</td>
+                <td style={{ fontWeight: 700 }}>EidolonDB</td>
                 <td className="good">100%</td>
+                <td className="good">100%</td>
+                <td className="good" style={{ fontWeight: 700 }}>100%</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p className="muted" style={{ fontSize: '0.8rem', marginTop: '0.75rem' }}>
+          * RAG baseline uses the same false-premise rejection prompt as EidolonDB for a fair retrieval comparison. Naive RAG without this prompt scores ~65%. EidolonDB&apos;s advantage grows significantly over longer session horizons.
+        </p>
       </section>
 
       <section className="section container" id="features">
