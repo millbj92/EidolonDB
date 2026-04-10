@@ -10,7 +10,7 @@ export default defineConfig({
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'API Reference', link: '/api/overview' },
       { text: 'SDK', link: '/sdk/javascript' },
-      { text: 'GitHub', link: 'https://github.com/eidolondb/eidolondb' },
+      { text: 'GitHub', link: 'https://github.com/millbj92/eidolondb' },
     ],
     sidebar: [
       {
@@ -47,6 +47,6 @@ export default defineConfig({
         items: [{ text: 'Self-Hosting', link: '/self-hosting' }],
       },
     ],
-    socialLinks: [{ icon: 'github', link: 'https://github.com/eidolondb/eidolondb' }],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/millbj92/eidolondb' }],
   },
 });

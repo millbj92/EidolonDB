@@ -10,7 +10,7 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/eidolondb/eidolondb
+      link: https://github.com/millbj92/eidolondb
 features:
   - icon: 🧠
     title: Auto-Extraction
