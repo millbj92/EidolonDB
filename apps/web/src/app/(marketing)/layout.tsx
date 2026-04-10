@@ -27,7 +27,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="footer-links">
             <a href="/docs">Docs</a>
             <a href="/contact">Contact</a>
-            <a href="https://github.com/eidolondb/eidolondb" target="_blank" rel="noreferrer">
+            <a href="https://github.com/millbj92/eidolondb" target="_blank" rel="noreferrer">
               GitHub
             </a>
             <a href="/self-hosting">Self-hosting</a>

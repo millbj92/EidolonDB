@@ -14,7 +14,7 @@ export default function MarketingPage() {
           <a className="btn" href="/docs">
             View Docs →
           </a>
-          <a className="btn" href="https://github.com/eidolondb/eidolondb" target="_blank" rel="noreferrer">
+          <a className="btn" href="https://github.com/millbj92/eidolondb" target="_blank" rel="noreferrer">
             GitHub →
           </a>
         </div>
