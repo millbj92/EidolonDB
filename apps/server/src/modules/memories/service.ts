@@ -198,7 +198,7 @@ export async function listMemories(
   tenantId: string,
   input: ListMemoriesQueryInput
 ): Promise<ListMemoriesResult> {
-  const { offset, limit, tier, tag, ownerEntityId, sortBy, sortOrder } = input;
+  const { offset, limit, tier, tag, ownerEntityId, conflictStatus, sortBy, sortOrder } = input;
   const conditions = [eq(memories.tenantId, tenantId)];
 
   if (tier) {
@@ -209,6 +209,9 @@ export async function listMemories(
   }
   if (tag) {
     conditions.push(sql`array_position(${memories.tags}, ${tag}) IS NOT NULL`);
+  }
+  if (conflictStatus) {
+    conditions.push(eq(memories.conflictStatus, conflictStatus));
   }
 
   const whereClause = and(...conditions);
@@ -806,6 +809,10 @@ function rowToMemory(row: Record<string, unknown>): Memory {
     recencyScore: row['recency_score'] != null ? Number(row['recency_score']) : null,
     accessCount: row['access_count'] != null ? Number(row['access_count']) : null,
     retrievalCount: row['retrieval_count'] != null ? Number(row['retrieval_count']) : null,
+    conflictStatus: (row['conflict_status'] as 'none' | 'flagged' | 'resolved') ?? 'none',
+    conflictGroupId: row['conflict_group_id'] ? String(row['conflict_group_id']) : null,
+    conflictResolution: row['conflict_resolution'] ? String(row['conflict_resolution']) : null,
+    resolvedAt: row['resolved_at'] ? new Date(String(row['resolved_at'])) : null,
     sessionNumber: row['session_number'] != null ? Number(row['session_number']) : null,
     lastAccessedAt: row['last_accessed_at'] ? new Date(String(row['last_accessed_at'])) : null,
     lastRetrievedAt: row['last_retrieved_at'] ? new Date(String(row['last_retrieved_at'])) : null,

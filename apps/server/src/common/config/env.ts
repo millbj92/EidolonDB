@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+const booleanFromEnv = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['0', 'false', 'no', 'off', ''].includes(normalized)) {
+      return false;
+    }
+  }
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3000),
@@ -7,6 +20,7 @@ const envSchema = z.object({
   MEMORIES_DATABASE_URL: z.string(),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   OPENAI_API_KEY: z.string().optional(),
+  AUTO_RESOLVE_CONFLICTS: booleanFromEnv.default(false),
 });
 
 export type Env = z.infer<typeof envSchema>;

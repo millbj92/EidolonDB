@@ -82,6 +82,10 @@ export const memories = pgTable('memories', {
   recencyScore: real('recency_score').default(1.0),
   accessCount: integer('access_count').default(0),
   retrievalCount: integer('retrieval_count').default(0),
+  conflictStatus: text('conflict_status').$type<'none' | 'flagged' | 'resolved'>().default('none'),
+  conflictGroupId: uuid('conflict_group_id'),
+  conflictResolution: text('conflict_resolution'),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   sessionNumber: integer('session_number'),
   lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }),
   lastRetrievedAt: timestamp('last_retrieved_at', { withTimezone: true }),
@@ -94,6 +98,7 @@ export const memories = pgTable('memories', {
   index('memories_owner_entity_id_idx').on(table.ownerEntityId),
   index('memories_tier_idx').on(table.tier),
   index('memories_tenant_session_number_idx').on(table.tenantId, table.sessionNumber),
+  index('memories_conflict_status_idx').on(table.tenantId, table.conflictStatus),
 ]);
 
 // Memory grants table
