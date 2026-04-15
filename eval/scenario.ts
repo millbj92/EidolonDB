@@ -1,4 +1,4 @@
-export type AgentType = "baseline" | "rag_baseline" | "eidolondb";
+export type AgentType = "baseline" | "rag_baseline" | "eidolondb" | "eidolondb_rbac";
 
 export interface TranscriptMessage {
   role: "user" | "assistant";
@@ -804,6 +804,236 @@ export const TEMPORAL_SESSION_V1: ScenarioDefinition = {
   ],
 };
 
+export const RBAC_ISOLATION_V1: ScenarioDefinition = {
+  name: "rbac-isolation-v1",
+  questions: {
+    rbac_iso_q1: {
+      id: "rbac_iso_q1",
+      question: "What is the database password?",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+    rbac_iso_q2: {
+      id: "rbac_iso_q2",
+      question: "What is the API secret key?",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "The database password is hunter2" },
+        { content: "The API secret key is abc123" },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        { content: "[SETUP] no grant" },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "What is the database password?",
+          recallQuestionId: "rbac_iso_q1",
+        },
+        {
+          content: "What is the API secret key?",
+          recallQuestionId: "rbac_iso_q2",
+        },
+      ],
+    },
+  ],
+};
+
+export const RBAC_SHARED_READ_V1: ScenarioDefinition = {
+  name: "rbac-shared-read-v1",
+  questions: {
+    rbac_share_q1: {
+      id: "rbac_share_q1",
+      question: "What framework and port does the project use?",
+      requiredKeywords: [["fastify"], ["4000"]],
+      kind: "recall",
+    },
+    rbac_share_q2: {
+      id: "rbac_share_q2",
+      question: "Who is the lead developer?",
+      requiredKeywords: [["jordan"]],
+      kind: "recall",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "The project uses Fastify on port 4000" },
+        { content: "The lead developer is Jordan" },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        { content: "[SETUP] grant read from A to B" },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "What framework and port does the project use?",
+          recallQuestionId: "rbac_share_q1",
+        },
+        {
+          content: "Who is the lead developer?",
+          recallQuestionId: "rbac_share_q2",
+        },
+      ],
+    },
+  ],
+};
+
+export const RBAC_SCOPE_TIER_V1: ScenarioDefinition = {
+  name: "rbac-scope-tier-v1",
+  questions: {
+    rbac_tier_q1: {
+      id: "rbac_tier_q1",
+      question: "What database do we use?",
+      requiredKeywords: [["postgresql", "postgres"]],
+      kind: "recall",
+    },
+    rbac_tier_q2: {
+      id: "rbac_tier_q2",
+      question: "As I mentioned, there's a meeting at 3pm today.",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "Meeting at 3pm today" },
+        { content: "We use PostgreSQL for the database" },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        { content: "[SETUP] grant read from A to B tier=semantic" },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "What database do we use?",
+          recallQuestionId: "rbac_tier_q1",
+        },
+        {
+          content: "As I mentioned, there's a meeting at 3pm today.",
+          recallQuestionId: "rbac_tier_q2",
+        },
+      ],
+    },
+  ],
+};
+
+export const RBAC_BROADCAST_V1: ScenarioDefinition = {
+  name: "rbac-broadcast-v1",
+  questions: {
+    rbac_bc_q1: {
+      id: "rbac_bc_q1",
+      question: "What is the company name?",
+      requiredKeywords: [["eidolon"]],
+      kind: "recall",
+    },
+    rbac_bc_q2: {
+      id: "rbac_bc_q2",
+      question: "Where is the office located?",
+      requiredKeywords: [["san francisco"]],
+      kind: "recall",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "Company name is Eidolon" },
+        { content: "Office location is San Francisco" },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        { content: "[SETUP] grant read from A to all" },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "What is the company name?",
+          recallQuestionId: "rbac_bc_q1",
+        },
+        {
+          content: "Where is the office located?",
+          recallQuestionId: "rbac_bc_q2",
+        },
+      ],
+    },
+  ],
+};
+
+export const RBAC_REVOKE_V1: ScenarioDefinition = {
+  name: "rbac-revoke-v1",
+  questions: {
+    rbac_rev_q1: {
+      id: "rbac_rev_q1",
+      question: "What is the project codename?",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+    rbac_rev_q2: {
+      id: "rbac_rev_q2",
+      question: "What is the launch date?",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "Project codename is Nova" },
+        { content: "Launch date is Q3" },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        { content: "[SETUP] grant read from A to B then revoke" },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "What is the project codename?",
+          recallQuestionId: "rbac_rev_q1",
+        },
+        {
+          content: "What is the launch date?",
+          recallQuestionId: "rbac_rev_q2",
+        },
+      ],
+    },
+  ],
+};
+
 export const SCENARIOS: ScenarioDefinition[] = [
   PROJECT_ASSISTANT_V1,
   PERSONAL_ASSISTANT_V1,
@@ -813,4 +1043,9 @@ export const SCENARIOS: ScenarioDefinition[] = [
   CONTRADICTORY_MEMORY_V1,
   INCOMPLETE_RECALL_V1,
   TEMPORAL_SESSION_V1,
+  RBAC_ISOLATION_V1,
+  RBAC_SHARED_READ_V1,
+  RBAC_SCOPE_TIER_V1,
+  RBAC_BROADCAST_V1,
+  RBAC_REVOKE_V1,
 ];

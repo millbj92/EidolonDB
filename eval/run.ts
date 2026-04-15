@@ -5,13 +5,17 @@ import {
   createBaselineAgent,
   createRagBaselineAgent,
   createEidolonDbAgent,
+  createEidolonDbRbacAgent,
   cleanupEvalTenantMemories,
+  cleanupEvalTenantGrants,
+  ensureRbacEvalEntities,
   type EvalAgent,
   type RuntimeConfig,
   type LlmMessage,
 } from "./agents.js";
 import {
   SCENARIOS,
+  type AgentType,
   type AggregateMetrics,
   type EvalResult,
   type MultiScenarioEvalResult,
@@ -200,6 +204,22 @@ function computeAggregateMetrics(results: EvalResult[]): AggregateMetrics {
   };
 }
 
+function isRbacScenario(scenario: ScenarioDefinition): boolean {
+  return scenario.name.startsWith("rbac-");
+}
+
+function zeroMetrics(agentType: AgentType): EvalResult["baseline"] {
+  return {
+    agentType,
+    sessions: [],
+    totalRecallScore: 0,
+    maxRecallScore: 0,
+    recallAccuracy: 0,
+    hallucinationScore: 0,
+    overallScore: 0,
+  };
+}
+
 async function writeResults(result: MultiScenarioEvalResult): Promise<void> {
   await mkdir(RESULTS_DIR, { recursive: true });
 
@@ -230,8 +250,9 @@ async function main(): Promise<void> {
   for (const scenario of SCENARIOS) {
     const scenarioStartedAt = Date.now();
     const scenarioErrors: string[] = [];
+    const rbacScenario = isRbacScenario(scenario);
 
-    console.log(`Starting scenario: ${scenario.name}`);
+    console.log(`Starting scenario: ${scenario.name}${rbacScenario ? " [RBAC]" : ""}`);
 
     try {
       const deleted = await cleanupEvalTenantMemories(config);
@@ -243,21 +264,76 @@ async function main(): Promise<void> {
       console.error(tag);
     }
 
-    const baselineAgent = createBaselineAgent(config);
-    const ragBaselineAgent = createRagBaselineAgent(config);
-    const eidolonAgent = createEidolonDbAgent(config);
+    try {
+      const deletedGrants = await cleanupEvalTenantGrants(config);
+      console.log(`[${scenario.name}] Cleared eval tenant grants: ${deletedGrants}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const tag = `[${scenario.name}] [cleanup] grants failed: ${message}`;
+      scenarioErrors.push(tag);
+      console.error(tag);
+    }
 
-    const baselineSessions = await runAgentScenario(scenario, baselineAgent, scenarioErrors);
-    const ragBaselineSessions = await runAgentScenario(scenario, ragBaselineAgent, scenarioErrors);
-    const eidolonSessions = await runAgentScenario(scenario, eidolonAgent, scenarioErrors);
+    let baselineSessions: SessionResult[] = [];
+    let ragBaselineSessions: SessionResult[] = [];
+    let eidolonSessions: SessionResult[] = [];
+    let baseline = zeroMetrics("baseline");
+    let rag_baseline = zeroMetrics("rag_baseline");
+    let eidolondb = zeroMetrics("eidolondb");
+
+    if (rbacScenario) {
+      try {
+        await ensureRbacEvalEntities(config);
+        console.log(`[${scenario.name}] RBAC entities upserted`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const tag = `[${scenario.name}] [setup] RBAC entities failed: ${message}`;
+        scenarioErrors.push(tag);
+        console.error(tag);
+      }
+
+      const rbacAgentA = createEidolonDbRbacAgent(config, "a");
+      const rbacAgentB = createEidolonDbRbacAgent(config, "b");
+      const setupSessionIndex = scenario.sessions.findIndex((session) =>
+        session.userMessages.some((message) => message.content.trim().startsWith("[SETUP]"))
+      );
+      const splitIndex = setupSessionIndex === -1 ? 1 : setupSessionIndex + 1;
+
+      const aScenario: ScenarioDefinition = {
+        ...scenario,
+        sessions: scenario.sessions.slice(0, splitIndex),
+      };
+      const bScenario: ScenarioDefinition = {
+        ...scenario,
+        sessions: scenario.sessions.slice(splitIndex),
+      };
+
+      const aSessions = await runAgentScenario(aScenario, rbacAgentA, scenarioErrors);
+      const bSessions = await runAgentScenario(bScenario, rbacAgentB, scenarioErrors);
+      eidolonSessions = [...aSessions, ...bSessions];
+      eidolondb = computeAgentMetrics("eidolondb_rbac", eidolonSessions, scenario);
+
+      const note =
+        `[${scenario.name}] [note] RBAC scenario executed with eidolondb_rbac only; ` +
+        "baseline and rag_baseline metrics are placeholders set to 0.";
+      scenarioErrors.push(note);
+      console.log(note);
+    } else {
+      const baselineAgent = createBaselineAgent(config);
+      const ragBaselineAgent = createRagBaselineAgent(config);
+      const eidolonAgent = createEidolonDbAgent(config);
+
+      baselineSessions = await runAgentScenario(scenario, baselineAgent, scenarioErrors);
+      ragBaselineSessions = await runAgentScenario(scenario, ragBaselineAgent, scenarioErrors);
+      eidolonSessions = await runAgentScenario(scenario, eidolonAgent, scenarioErrors);
+      baseline = computeAgentMetrics("baseline", baselineSessions, scenario);
+      rag_baseline = computeAgentMetrics("rag_baseline", ragBaselineSessions, scenario);
+      eidolondb = computeAgentMetrics("eidolondb", eidolonSessions, scenario);
+    }
 
     for (const scenarioError of scenarioErrors) {
       errors.push(scenarioError);
     }
-
-    const baseline = computeAgentMetrics("baseline", baselineSessions, scenario);
-    const rag_baseline = computeAgentMetrics("rag_baseline", ragBaselineSessions, scenario);
-    const eidolondb = computeAgentMetrics("eidolondb", eidolonSessions, scenario);
 
     const scenarioResult: EvalResult = {
       runDate,
@@ -278,7 +354,7 @@ async function main(): Promise<void> {
     scenarioResults.push(scenarioResult);
 
     console.log(
-      `[${scenario.name}] Summary baseline(overall=${baseline.overallScore.toFixed(3)}) rag_baseline(overall=${rag_baseline.overallScore.toFixed(3)}) eidolondb(overall=${eidolondb.overallScore.toFixed(3)}) delta=${scenarioResult.delta.overallScore.toFixed(3)}`
+      `[${scenario.name}] Summary baseline(overall=${baseline.overallScore.toFixed(3)}) rag_baseline(overall=${rag_baseline.overallScore.toFixed(3)}) ${rbacScenario ? "eidolondb_rbac" : "eidolondb"}(overall=${eidolondb.overallScore.toFixed(3)}) delta=${scenarioResult.delta.overallScore.toFixed(3)}`
     );
   }
 

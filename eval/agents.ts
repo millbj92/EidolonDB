@@ -24,6 +24,12 @@ export interface EvalAgent {
 }
 
 const EVAL_TENANT_ID = "openclaw-eval";
+const RBAC_AGENT_A_ID = "00000000-0000-0000-0000-000000000001";
+const RBAC_AGENT_B_ID = "00000000-0000-0000-0000-000000000002";
+let rbacAgentAEntityId = RBAC_AGENT_A_ID;
+let rbacAgentBEntityId = RBAC_AGENT_B_ID;
+
+type MemoryTier = "short_term" | "episodic" | "semantic";
 
 interface MemoryQueryResult {
   memory?: {
@@ -65,6 +71,27 @@ interface ListMemoriesResponse {
 interface MemoryQueryResponse {
   data?: {
     results?: MemoryQueryResult[];
+  };
+}
+
+interface ListGrantsResponse {
+  data?: {
+    grants?: Array<{ id: string }>;
+    total?: number;
+    limit?: number;
+    offset?: number;
+  };
+}
+
+interface CreateGrantResponse {
+  data?: {
+    id?: string;
+  };
+}
+
+interface EntityResponse {
+  data?: {
+    id?: string;
   };
 }
 
@@ -187,7 +214,12 @@ async function queryRelevantMemoriesRaw(
   config: RuntimeConfig,
   queryText: string,
   k = 5,
-  temporal?: TemporalQueryFilter
+  temporal?: TemporalQueryFilter,
+  options?: {
+    includeShared?: boolean;
+    requestingEntityId?: string;
+    ownerEntityId?: string;
+  }
 ): Promise<RawMemoryQueryResult[]> {
   const response = await fetch(`${config.eidolonDbUrl}/memories/query`, {
     method: "POST",
@@ -199,13 +231,16 @@ async function queryRelevantMemoriesRaw(
       text: queryText,
       k,
       temporal,
+      includeShared: options?.includeShared ?? false,
+      requestingEntityId: options?.requestingEntityId,
+      ownerEntityId: options?.ownerEntityId,
     }),
   });
 
   if (response.ok === false) {
     if (temporal && response.status >= 500) {
       console.warn(`Temporal query failed (${response.status}), retrying without temporal filter`);
-      return queryRelevantMemoriesRaw(config, queryText, k);
+      return queryRelevantMemoriesRaw(config, queryText, k, undefined, options);
     }
     const body = await response.text();
     throw new Error(`Memory query failed (${response.status}): ${body}`);
@@ -241,7 +276,8 @@ async function ingestSessionTranscript(
   config: RuntimeConfig,
   sessionNumber: number,
   transcript: TranscriptMessage[],
-  scenarioName: string
+  scenarioName: string,
+  ownerEntityId?: string
 ): Promise<void> {
   const transcriptText = transcript
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
@@ -257,6 +293,7 @@ async function ingestSessionTranscript(
       source: "chat",
       autoStore: true,
       content: transcriptText,
+      ownerEntityId,
       metadata: {
         evalScenario: scenarioName,
         sessionNumber,
@@ -323,6 +360,209 @@ export async function cleanupEvalTenantMemories(config: RuntimeConfig): Promise<
   }
 
   return deleted;
+}
+
+export async function cleanupEvalTenantGrants(config: RuntimeConfig): Promise<number> {
+  let deleted = 0;
+  const limit = 100;
+
+  for (;;) {
+    const listResponse = await fetch(`${config.eidolonDbUrl}/grants?limit=${limit}&offset=0`, {
+      method: "GET",
+      headers: {
+        "x-tenant-id": EVAL_TENANT_ID,
+      },
+    });
+
+    if (listResponse.ok === false) {
+      const text = await listResponse.text();
+      throw new Error(`Failed to list eval tenant grants (${listResponse.status}): ${text}`);
+    }
+
+    const listJson = (await listResponse.json()) as ListGrantsResponse;
+    const grants = listJson.data?.grants ?? [];
+
+    if (grants.length === 0) {
+      break;
+    }
+
+    for (const grant of grants) {
+      const deleteResponse = await fetch(`${config.eidolonDbUrl}/grants/${grant.id}`, {
+        method: "DELETE",
+        headers: {
+          "x-tenant-id": EVAL_TENANT_ID,
+        },
+      });
+
+      if (deleteResponse.ok) {
+        deleted += 1;
+        continue;
+      }
+
+      if (deleteResponse.status === 404) {
+        continue;
+      }
+
+      const text = await deleteResponse.text();
+      throw new Error(`Failed to delete grant ${grant.id} (${deleteResponse.status}): ${text}`);
+    }
+
+  }
+
+  return deleted;
+}
+
+function getRbacEntityId(agent: "a" | "b"): string {
+  return agent === "a" ? rbacAgentAEntityId : rbacAgentBEntityId;
+}
+
+async function ensureEntityExists(
+  config: RuntimeConfig,
+  entityId: string,
+  name: string
+): Promise<string> {
+  const getResponse = await fetch(`${config.eidolonDbUrl}/entities/${entityId}`, {
+    method: "GET",
+    headers: {
+      "x-tenant-id": EVAL_TENANT_ID,
+    },
+  });
+
+  if (getResponse.ok) {
+    return entityId;
+  }
+
+  if (getResponse.status !== 404) {
+    const text = await getResponse.text();
+    throw new Error(`Failed to fetch entity ${entityId} (${getResponse.status}): ${text}`);
+  }
+
+  const createResponse = await fetch(`${config.eidolonDbUrl}/entities`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-tenant-id": EVAL_TENANT_ID,
+    },
+    body: JSON.stringify({
+      id: entityId,
+      type: "agent",
+      name,
+      properties: {
+        eval: true,
+      },
+      tags: ["eval", "rbac"],
+    }),
+  });
+
+  if (createResponse.ok === false) {
+    const text = await createResponse.text();
+    throw new Error(`Failed to create entity ${entityId} (${createResponse.status}): ${text}`);
+  }
+
+  const json = (await createResponse.json()) as EntityResponse;
+  const createdId = json.data?.id;
+  if (typeof createdId !== "string" || createdId.length === 0) {
+    throw new Error(`Entity create response missing id for requested id ${entityId}`);
+  }
+
+  if (createdId !== entityId) {
+    console.warn(
+      `[eval-rbac] requested fixed entity id ${entityId} but server created ${createdId}; using created id`
+    );
+  }
+
+  return createdId;
+}
+
+export async function ensureRbacEvalEntities(config: RuntimeConfig): Promise<void> {
+  rbacAgentAEntityId = await ensureEntityExists(config, RBAC_AGENT_A_ID, "Eval RBAC Agent A");
+  rbacAgentBEntityId = await ensureEntityExists(config, RBAC_AGENT_B_ID, "Eval RBAC Agent B");
+}
+
+async function createOwnedMemory(
+  config: RuntimeConfig,
+  ownerEntityId: string,
+  content: string,
+  scenarioName: string,
+  sessionNumber: number,
+  tier: MemoryTier
+): Promise<void> {
+  const response = await fetch(`${config.eidolonDbUrl}/memories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-tenant-id": EVAL_TENANT_ID,
+    },
+    body: JSON.stringify({
+      ownerEntityId,
+      tier,
+      content,
+      tags: ["eval", scenarioName, "rbac"],
+      metadata: {
+        evalScenario: scenarioName,
+        sessionNumber,
+      },
+    }),
+  });
+
+  if (response.ok === false) {
+    const text = await response.text();
+    throw new Error(`Failed to create memory (${response.status}): ${text}`);
+  }
+}
+
+async function createGrant(
+  config: RuntimeConfig,
+  input: {
+    ownerEntityId: string;
+    granteeEntityId?: string | null;
+    permission?: "read" | "read-write";
+    scopeTier?: MemoryTier;
+    scopeTag?: string;
+  }
+): Promise<string> {
+  const response = await fetch(`${config.eidolonDbUrl}/grants`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-tenant-id": EVAL_TENANT_ID,
+    },
+    body: JSON.stringify({
+      ownerEntityId: input.ownerEntityId,
+      granteeEntityId: input.granteeEntityId ?? null,
+      permission: input.permission ?? "read",
+      scopeTier: input.scopeTier,
+      scopeTag: input.scopeTag,
+    }),
+  });
+
+  if (response.ok === false) {
+    const text = await response.text();
+    throw new Error(`Failed to create grant (${response.status}): ${text}`);
+  }
+
+  const json = (await response.json()) as CreateGrantResponse;
+  const grantId = json.data?.id;
+  if (typeof grantId !== "string" || grantId.length === 0) {
+    throw new Error("Grant create response missing id");
+  }
+  return grantId;
+}
+
+async function deleteGrantById(config: RuntimeConfig, grantId: string): Promise<void> {
+  const response = await fetch(`${config.eidolonDbUrl}/grants/${grantId}`, {
+    method: "DELETE",
+    headers: {
+      "x-tenant-id": EVAL_TENANT_ID,
+    },
+  });
+
+  if (response.ok || response.status === 404) {
+    return;
+  }
+
+  const text = await response.text();
+  throw new Error(`Failed to delete grant ${grantId} (${response.status}): ${text}`);
 }
 
 async function getMostRecentMemorySummary(config: RuntimeConfig): Promise<string | null> {
@@ -674,4 +914,192 @@ export function createEidolonDbAgent(config: RuntimeConfig): EvalAgent {
   };
 }
 
-export { EVAL_TENANT_ID };
+type RbacAgentId = "a" | "b";
+
+function isSetupSession(session: SessionDefinition): boolean {
+  return session.userMessages.some((message) => message.content.trim().startsWith("[SETUP]"));
+}
+
+function chooseRbacTier(content: string): MemoryTier {
+  if (/meeting at 3pm today/i.test(content)) {
+    return "short_term";
+  }
+  if (/we use postgresql/i.test(content)) {
+    return "semantic";
+  }
+  return "semantic";
+}
+
+class EidolonDbRbacAgent implements EvalAgent {
+  readonly agentType: AgentType = "eidolondb_rbac";
+  private activeSessionNumber = 1;
+
+  constructor(
+    private readonly config: RuntimeConfig,
+    private readonly agentId: RbacAgentId
+  ) {}
+
+  async buildSessionSystemMessages(session: SessionDefinition): Promise<LlmMessage[]> {
+    this.activeSessionNumber = session.sessionNumber;
+    return [];
+  }
+
+  async enrichMessages(messages: LlmMessage[]): Promise<LlmMessage[]> {
+    if (this.activeSessionNumber < 2) {
+      return messages;
+    }
+
+    const lastUserIndex = (() => {
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        if (messages[index]?.role === "user") {
+          return index;
+        }
+      }
+      return -1;
+    })();
+
+    if (lastUserIndex === -1) {
+      return messages;
+    }
+
+    const userMessage = messages[lastUserIndex];
+    if (userMessage.content.trim().startsWith("[SETUP]")) {
+      return messages;
+    }
+
+    const temporalIntent = detectTemporalIntent(userMessage.content);
+    const temporalFilter: TemporalQueryFilter | undefined =
+      temporalIntent?.mode === "session-relative"
+        ? {
+            mode: "session-relative",
+            sessionNumber: this.activeSessionNumber + temporalIntent.sessionOffset,
+          }
+        : temporalIntent ?? undefined;
+    const queryOptions =
+      this.agentId === "b"
+        ? {
+            includeShared: true,
+            requestingEntityId: getRbacEntityId("b"),
+          }
+        : {
+            ownerEntityId: getRbacEntityId("a"),
+          };
+    const memories = await queryRelevantMemoriesRaw(
+      this.config,
+      userMessage.content,
+      5,
+      temporalFilter,
+      queryOptions
+    );
+
+    const memoryLines = memories.map((memory) => `- ${memory.content}`).join("\n");
+    const systemMessage: LlmMessage = {
+      role: "system",
+      content: buildMemorySystemPrompt(
+        memoryLines,
+        "The following facts were retrieved from previous sessions using EidolonDB (LLM-extracted, semantically indexed):"
+      ),
+    };
+
+    return [...messages.slice(0, lastUserIndex), systemMessage, ...messages.slice(lastUserIndex)];
+  }
+
+  async respond(messages: LlmMessage[]): Promise<string> {
+    const lastUser = (() => {
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        if (messages[index]?.role === "user") {
+          return messages[index];
+        }
+      }
+      return null;
+    })();
+
+    if (lastUser && lastUser.content.trim().startsWith("[SETUP]")) {
+      await this.runSetupInstruction(lastUser.content);
+      return "Setup complete.";
+    }
+
+    return openAiChatCompletion(this.config, messages);
+  }
+
+  async persistSession(
+    session: SessionDefinition,
+    transcript: TranscriptMessage[],
+    scenario: ScenarioDefinition
+  ): Promise<void> {
+    if (isSetupSession(session)) {
+      return;
+    }
+
+    if (this.agentId !== "a") {
+      return;
+    }
+
+    for (const message of transcript) {
+      if (message.role !== "user") {
+        continue;
+      }
+      await createOwnedMemory(
+        this.config,
+        getRbacEntityId("a"),
+        message.content,
+        scenario.name,
+        session.sessionNumber,
+        chooseRbacTier(message.content)
+      );
+    }
+  }
+
+  private async runSetupInstruction(raw: string): Promise<void> {
+    const instruction = raw.replace(/^\[SETUP\]\s*/i, "").trim().toLowerCase();
+    if (instruction === "no grant") {
+      return;
+    }
+
+    if (instruction === "grant read from a to b") {
+      await createGrant(this.config, {
+        ownerEntityId: getRbacEntityId("a"),
+        granteeEntityId: getRbacEntityId("b"),
+        permission: "read",
+      });
+      return;
+    }
+
+    if (instruction === "grant read from a to b tier=semantic") {
+      await createGrant(this.config, {
+        ownerEntityId: getRbacEntityId("a"),
+        granteeEntityId: getRbacEntityId("b"),
+        permission: "read",
+        scopeTier: "semantic",
+      });
+      return;
+    }
+
+    if (instruction === "grant read from a to all") {
+      await createGrant(this.config, {
+        ownerEntityId: getRbacEntityId("a"),
+        granteeEntityId: null,
+        permission: "read",
+      });
+      return;
+    }
+
+    if (instruction === "grant read from a to b then revoke") {
+      const grantId = await createGrant(this.config, {
+        ownerEntityId: getRbacEntityId("a"),
+        granteeEntityId: getRbacEntityId("b"),
+        permission: "read",
+      });
+      await deleteGrantById(this.config, grantId);
+      return;
+    }
+
+    throw new Error(`Unsupported setup instruction: ${raw}`);
+  }
+}
+
+export function createEidolonDbRbacAgent(config: RuntimeConfig, agentId: RbacAgentId): EvalAgent {
+  return new EidolonDbRbacAgent(config, agentId);
+}
+
+export { EVAL_TENANT_ID, RBAC_AGENT_A_ID, RBAC_AGENT_B_ID };
