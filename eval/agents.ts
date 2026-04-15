@@ -938,9 +938,14 @@ export function createEidolonDbAgent(config: RuntimeConfig): EvalAgent {
 }
 
 type RbacAgentId = "a" | "b";
+type ConflictResolutionStrategy = "merge" | "newer-wins";
 
 function isSetupSession(session: SessionDefinition): boolean {
   return session.userMessages.some((message) => message.content.trim().startsWith("[SETUP]"));
+}
+
+function isConflictSetupSession(session: SessionDefinition): boolean {
+  return session.userMessages.some((message) => message.content.trim().startsWith("[SETUP-CONFLICT]"));
 }
 
 function chooseRbacTier(content: string): MemoryTier {
@@ -1123,6 +1128,171 @@ class EidolonDbRbacAgent implements EvalAgent {
 
 export function createEidolonDbRbacAgent(config: RuntimeConfig, agentId: RbacAgentId): EvalAgent {
   return new EidolonDbRbacAgent(config, agentId);
+}
+
+class EidolonDbConflictAgent implements EvalAgent {
+  readonly agentType: AgentType = "eidolondb_conflict";
+  private activeSessionNumber = 1;
+
+  constructor(private readonly config: RuntimeConfig) {}
+
+  async buildSessionSystemMessages(session: SessionDefinition): Promise<LlmMessage[]> {
+    this.activeSessionNumber = session.sessionNumber;
+    return [];
+  }
+
+  async enrichMessages(messages: LlmMessage[]): Promise<LlmMessage[]> {
+    if (this.activeSessionNumber < 2) {
+      return messages;
+    }
+
+    const lastUserIndex = (() => {
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        if (messages[index]?.role === "user") {
+          return index;
+        }
+      }
+      return -1;
+    })();
+
+    if (lastUserIndex === -1) {
+      return messages;
+    }
+
+    const userMessage = messages[lastUserIndex];
+    if (userMessage.content.trim().startsWith("[SETUP-CONFLICT]")) {
+      return messages;
+    }
+
+    const temporalIntent = detectTemporalIntent(userMessage.content);
+    const temporalFilter: TemporalQueryFilter | undefined =
+      temporalIntent?.mode === "session-relative"
+        ? {
+            mode: "session-relative",
+            sessionNumber: this.activeSessionNumber + temporalIntent.sessionOffset,
+          }
+        : temporalIntent ?? undefined;
+    const memories = await queryRelevantMemoriesRaw(this.config, userMessage.content, 5, temporalFilter, {
+      includeShared: false,
+    });
+
+    const memoryLines = memories.map((memory) => `- ${memory.content}`).join("\n");
+    const systemMessage: LlmMessage = {
+      role: "system",
+      content: buildMemorySystemPrompt(
+        memoryLines,
+        "The following facts were retrieved from previous sessions using EidolonDB (LLM-extracted, semantically indexed):"
+      ),
+    };
+
+    return [...messages.slice(0, lastUserIndex), systemMessage, ...messages.slice(lastUserIndex)];
+  }
+
+  async respond(messages: LlmMessage[]): Promise<string> {
+    const lastUser = (() => {
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        if (messages[index]?.role === "user") {
+          return messages[index];
+        }
+      }
+      return null;
+    })();
+
+    if (lastUser && lastUser.content.trim().startsWith("[SETUP-CONFLICT]")) {
+      await this.runSetupInstruction(lastUser.content);
+      return "Conflict setup complete.";
+    }
+
+    return openAiChatCompletion(this.config, messages);
+  }
+
+  async persistSession(
+    session: SessionDefinition,
+    transcript: TranscriptMessage[],
+    scenario: ScenarioDefinition
+  ): Promise<void> {
+    if (isConflictSetupSession(session)) {
+      return;
+    }
+    await ingestSessionTranscript(this.config, session.sessionNumber, transcript, scenario.name);
+  }
+
+  private async runSetupInstruction(raw: string): Promise<void> {
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    for (const line of lines) {
+      const instruction = line.replace(/^\[SETUP-CONFLICT\]\s*/i, "").trim();
+      if (instruction.length === 0) {
+        continue;
+      }
+
+      const storeMatch = instruction.match(/^store contradiction:\s*(.+)$/i);
+      if (storeMatch) {
+        const content = storeMatch[1]?.trim();
+        if (!content) {
+          throw new Error(`Invalid setup instruction: ${line}`);
+        }
+        await this.ingestConflictMemory(content);
+        continue;
+      }
+
+      const detectMatch = instruction.match(/^detect\s+autoResolve=(true|false)(?:\s+strategy=(merge|newer-wins))?$/i);
+      if (detectMatch) {
+        const autoResolve = detectMatch[1]?.toLowerCase() === "true";
+        const strategy = detectMatch[2]?.toLowerCase() as ConflictResolutionStrategy | undefined;
+        await this.detectConflicts(autoResolve, strategy);
+        continue;
+      }
+
+      throw new Error(`Unsupported conflict setup instruction: ${line}`);
+    }
+  }
+
+  private async ingestConflictMemory(content: string): Promise<void> {
+    const response = await fetch(`${this.config.eidolonDbUrl}/ingest`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-tenant-id": EVAL_TENANT_ID,
+      },
+      body: JSON.stringify({
+        content,
+        source: "chat",
+      }),
+    });
+
+    if (response.ok === false) {
+      const body = await response.text();
+      throw new Error(`Conflict setup ingest failed (${response.status}): ${body}`);
+    }
+  }
+
+  private async detectConflicts(autoResolve: boolean, strategy?: ConflictResolutionStrategy): Promise<void> {
+    const response = await fetch(`${this.config.eidolonDbUrl}/conflicts/detect`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-tenant-id": EVAL_TENANT_ID,
+      },
+      body: JSON.stringify({
+        autoResolve,
+        strategy,
+        limit: 50,
+      }),
+    });
+
+    if (response.ok === false) {
+      const body = await response.text();
+      throw new Error(`Conflict detection failed (${response.status}): ${body}`);
+    }
+  }
+}
+
+export function createEidolonDbConflictAgent(config: RuntimeConfig): EvalAgent {
+  return new EidolonDbConflictAgent(config);
 }
 
 export { EVAL_TENANT_ID, RBAC_AGENT_A_ID, RBAC_AGENT_B_ID };

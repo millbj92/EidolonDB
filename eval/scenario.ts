@@ -1,4 +1,9 @@
-export type AgentType = "baseline" | "rag_baseline" | "eidolondb" | "eidolondb_rbac";
+export type AgentType =
+  | "baseline"
+  | "rag_baseline"
+  | "eidolondb"
+  | "eidolondb_rbac"
+  | "eidolondb_conflict";
 
 export interface TranscriptMessage {
   role: "user" | "assistant";
@@ -804,6 +809,161 @@ export const TEMPORAL_SESSION_V1: ScenarioDefinition = {
   ],
 };
 
+export const CONFLICT_DETECTION_V1: ScenarioDefinition = {
+  name: "conflict-detection-v1",
+  questions: {
+    conflict_det_q1: {
+      id: "conflict_det_q1",
+      question: "Is there a conflict about the API port?",
+      requiredKeywords: [
+        [
+          "conflict",
+          "flagged",
+          "contradiction",
+          "both",
+          "8080 and 3000",
+          "3000 and 8080",
+          "two different",
+          "discrepancy",
+        ],
+      ],
+      kind: "recall",
+    },
+    conflict_det_q2: {
+      id: "conflict_det_q2",
+      question: "What port does the API run on?",
+      requiredKeywords: [["8080", "3000"]],
+      kind: "recall",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "The API runs on port 8080" },
+        { content: "The backend framework is Express" },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        {
+          content:
+            "[SETUP-CONFLICT] store contradiction: The API runs on port 3000\n[SETUP-CONFLICT] detect autoResolve=false",
+        },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "Is there a conflict about the API port?",
+          recallQuestionId: "conflict_det_q1",
+        },
+        {
+          content: "What port does the API run on?",
+          recallQuestionId: "conflict_det_q2",
+        },
+      ],
+    },
+  ],
+};
+
+export const CONFLICT_MERGE_V1: ScenarioDefinition = {
+  name: "conflict-merge-v1",
+  questions: {
+    conflict_merge_q1: {
+      id: "conflict_merge_q1",
+      question: "Who leads the backend team?",
+      requiredKeywords: [["jordan", "casey"]],
+      kind: "recall",
+    },
+    conflict_merge_q2: {
+      id: "conflict_merge_q2",
+      question: "What backend technology do we use?",
+      requiredKeywords: [["node", "nodejs", "node.js"]],
+      kind: "recall",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [
+        { content: "Jordan is the backend lead" },
+        { content: "The backend uses Node.js" },
+      ],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        {
+          content:
+            "[SETUP-CONFLICT] store contradiction: Casey is the backend lead\n[SETUP-CONFLICT] detect autoResolve=true strategy=merge",
+        },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "Who leads the backend team?",
+          recallQuestionId: "conflict_merge_q1",
+        },
+        {
+          content: "What backend technology do we use?",
+          recallQuestionId: "conflict_merge_q2",
+        },
+      ],
+    },
+  ],
+};
+
+export const CONFLICT_NEWER_WINS_V1: ScenarioDefinition = {
+  name: "conflict-newer-wins-v1",
+  questions: {
+    conflict_new_q1: {
+      id: "conflict_new_q1",
+      question: "What database do we use?",
+      requiredKeywords: [["postgresql", "postgres"]],
+      kind: "recall",
+    },
+    conflict_new_q2: {
+      id: "conflict_new_q2",
+      question: "As I mentioned, we use MySQL.",
+      requiredKeywords: HALLUCINATION_REQUIRED_KEYWORDS,
+      kind: "hallucination",
+    },
+  },
+  sessions: [
+    {
+      sessionNumber: 1,
+      userMessages: [{ content: "We use MySQL for the database" }],
+    },
+    {
+      sessionNumber: 2,
+      userMessages: [
+        {
+          content:
+            "[SETUP-CONFLICT] store contradiction: We switched to PostgreSQL\n[SETUP-CONFLICT] detect autoResolve=true strategy=newer-wins",
+        },
+      ],
+    },
+    {
+      sessionNumber: 3,
+      userMessages: [
+        {
+          content: "What database do we use?",
+          recallQuestionId: "conflict_new_q1",
+        },
+        {
+          content: "As I mentioned, we use MySQL.",
+          recallQuestionId: "conflict_new_q2",
+        },
+      ],
+    },
+  ],
+};
+
 export const RBAC_ISOLATION_V1: ScenarioDefinition = {
   name: "rbac-isolation-v1",
   questions: {
@@ -1083,6 +1243,9 @@ export const SCENARIOS: ScenarioDefinition[] = [
   CONTRADICTORY_MEMORY_V1,
   INCOMPLETE_RECALL_V1,
   TEMPORAL_SESSION_V1,
+  CONFLICT_DETECTION_V1,
+  CONFLICT_MERGE_V1,
+  CONFLICT_NEWER_WINS_V1,
   RBAC_ISOLATION_V1,
   RBAC_SHARED_READ_V1,
   RBAC_SCOPE_TIER_V1,
