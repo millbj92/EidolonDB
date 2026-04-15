@@ -42,8 +42,11 @@ export function computeAgentMetrics(
 
   const hallucinationScore =
     hallucinationQuestionCount > 0 ? hallucinationHitCount / hallucinationQuestionCount : 0;
-  const recallAccuracy = maxRecallScore > 0 ? totalRecallScore / maxRecallScore : 0;
-  const overallScore = clamp01(recallAccuracy) * 0.7 + clamp01(hallucinationScore) * 0.3;
+  // If no recall questions exist, don't penalize recall — use hallucination score only
+  const recallAccuracy = maxRecallScore > 0 ? totalRecallScore / maxRecallScore : 1;
+  const overallScore = maxRecallScore > 0
+    ? clamp01(recallAccuracy) * 0.7 + clamp01(hallucinationScore) * 0.3
+    : clamp01(hallucinationScore);
 
   return {
     agentType,
