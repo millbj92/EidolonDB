@@ -10,7 +10,11 @@ CREATE TABLE IF NOT EXISTS "memory_grants" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "memories" ADD COLUMN "session_number" integer;--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "memories" ADD COLUMN "session_number" integer;
+EXCEPTION
+ WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "memory_grants" ADD CONSTRAINT "memory_grants_owner_entity_id_entities_id_fk" FOREIGN KEY ("owner_entity_id") REFERENCES "public"."entities"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
