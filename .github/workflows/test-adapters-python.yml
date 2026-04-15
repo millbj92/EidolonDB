@@ -1,0 +1,27 @@
+name: Test Python Adapters
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/sdk-python-adapters/**'
+      - 'packages/sdk-python/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SDK + adapters
+        run: |
+          pip install -e packages/sdk-python
+          pip install -e "packages/sdk-python-adapters[dev]"
+
+      - name: Run tests
+        run: pytest packages/sdk-python-adapters/tests -v
