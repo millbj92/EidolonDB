@@ -411,7 +411,6 @@ async function main(): Promise<void> {
       const note =
         `[${scenario.name}] [note] RBAC scenario executed with eidolondb_rbac only; ` +
         "baseline and rag_baseline metrics are placeholders set to 0.";
-      scenarioErrors.push(note);
       console.log(note);
     } else {
       const baselineAgent = createBaselineAgent(config);
