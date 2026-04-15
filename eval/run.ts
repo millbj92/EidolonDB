@@ -27,6 +27,13 @@ import { computeAgentMetrics, scoreRecall } from "./scorer.js";
 
 const RESULTS_DIR = path.resolve("eval/results");
 const HISTORY_FILE = path.join(RESULTS_DIR, "history.jsonl");
+type SuiteName = "all" | "core" | "rbac";
+
+interface CliOptions {
+  suite: SuiteName;
+  scenario?: string;
+  listOnly: boolean;
+}
 
 function isoDateUtc(date = new Date()): string {
   return date.toISOString().slice(0, 10);
@@ -42,6 +49,49 @@ function buildRuntimeConfig(): RuntimeConfig {
     openAiApiKey,
     eidolonDbUrl: process.env.EIDOLONDB_URL ?? "http://localhost:3000",
     model: "gpt-4o-mini",
+  };
+}
+
+function parseCliArgs(argv: string[]): CliOptions {
+  let suite: SuiteName = "all";
+  let scenario: string | undefined;
+  let listOnly = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === "--list") {
+      listOnly = true;
+      continue;
+    }
+
+    if (arg === "--suite") {
+      const value = argv[index + 1];
+      if (value !== "all" && value !== "core" && value !== "rbac") {
+        throw new Error(`Invalid --suite value: ${value ?? "<missing>"}. Expected one of: all, core, rbac`);
+      }
+      suite = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--scenario") {
+      const value = argv[index + 1];
+      if (typeof value !== "string" || value.trim().length === 0) {
+        throw new Error("--scenario requires a scenario name");
+      }
+      scenario = value.trim();
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  return {
+    suite,
+    scenario,
+    listOnly,
   };
 }
 
@@ -208,6 +258,26 @@ function isRbacScenario(scenario: ScenarioDefinition): boolean {
   return scenario.name.startsWith("rbac-");
 }
 
+function selectScenarios(allScenarios: ScenarioDefinition[], options: CliOptions): ScenarioDefinition[] {
+  if (options.scenario) {
+    const matched = allScenarios.find((scenario) => scenario.name === options.scenario);
+    if (!matched) {
+      throw new Error(`Scenario not found: ${options.scenario}`);
+    }
+    return [matched];
+  }
+
+  if (options.suite === "core") {
+    return allScenarios.filter((scenario) => !isRbacScenario(scenario));
+  }
+
+  if (options.suite === "rbac") {
+    return allScenarios.filter((scenario) => isRbacScenario(scenario));
+  }
+
+  return allScenarios;
+}
+
 function zeroMetrics(agentType: AgentType): EvalResult["baseline"] {
   return {
     agentType,
@@ -220,10 +290,13 @@ function zeroMetrics(agentType: AgentType): EvalResult["baseline"] {
   };
 }
 
-async function writeResults(result: MultiScenarioEvalResult): Promise<void> {
+async function writeResults(result: MultiScenarioEvalResult, suffix?: string): Promise<void> {
   await mkdir(RESULTS_DIR, { recursive: true });
 
-  const resultPath = path.join(RESULTS_DIR, `${result.runDate}.json`);
+  const resultPath = path.join(
+    RESULTS_DIR,
+    suffix && suffix.length > 0 ? `${result.runDate}-${suffix}.json` : `${result.runDate}.json`
+  );
   await writeFile(resultPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
 
   const compact = compactMultiScenarioEvalResult(result);
@@ -234,20 +307,42 @@ async function writeResults(result: MultiScenarioEvalResult): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const cliOptions = parseCliArgs(process.argv.slice(2));
+  const selectedScenarios = selectScenarios(SCENARIOS, cliOptions);
+
+  if (cliOptions.listOnly) {
+    console.log("Available scenarios:");
+    for (const scenario of SCENARIOS) {
+      const suite = isRbacScenario(scenario) ? "rbac" : "core";
+      console.log(`- ${scenario.name} [${suite}]`);
+    }
+    return;
+  }
+
+  if (selectedScenarios.length === 0) {
+    throw new Error("No scenarios selected");
+  }
+
   const startedAt = Date.now();
   const runDate = isoDateUtc();
   const runId = randomUUID();
   const errors: string[] = [];
 
   const config = buildRuntimeConfig();
+  const filterLabel = cliOptions.scenario ? `scenario ${cliOptions.scenario}` : `suite ${cliOptions.suite}`;
 
   console.log(`Starting eval run ${runId} on ${runDate}`);
-  console.log(`Scenarios: ${SCENARIOS.map((scenario) => scenario.name).join(", ")}`);
+  if (cliOptions.scenario) {
+    console.log(`Scenario: ${cliOptions.scenario} (${selectedScenarios.length} scenario)`);
+  } else {
+    console.log(`Suite: ${cliOptions.suite} (${selectedScenarios.length} scenarios)`);
+  }
+  console.log(`Scenarios: ${selectedScenarios.map((scenario) => scenario.name).join(", ")}`);
   console.log(`EIDOLONDB_URL: ${config.eidolonDbUrl}`);
 
   const scenarioResults: EvalResult[] = [];
 
-  for (const scenario of SCENARIOS) {
+  for (const scenario of selectedScenarios) {
     const scenarioStartedAt = Date.now();
     const scenarioErrors: string[] = [];
     const rbacScenario = isRbacScenario(scenario);
@@ -370,9 +465,16 @@ async function main(): Promise<void> {
     errors,
   };
 
-  await writeResults(result);
+  const outputSuffix =
+    cliOptions.scenario && cliOptions.scenario.length > 0
+      ? `scenario-${cliOptions.scenario}`
+      : cliOptions.suite === "all"
+        ? undefined
+        : cliOptions.suite;
+  await writeResults(result, outputSuffix);
 
   console.log("Eval complete");
+  console.log(`Filter: ${filterLabel}`);
   console.log(
     JSON.stringify(
       {
