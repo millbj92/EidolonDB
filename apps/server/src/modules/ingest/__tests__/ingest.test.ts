@@ -1,11 +1,20 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockInsertValues, mockDbInsert, mockCreateMemory, mockCheckDedup } = vi.hoisted(() => ({
+const {
+  mockInsertValues,
+  mockDbInsert,
+  mockCreateMemory,
+  mockCheckDedup,
+  mockDetectConflict,
+  mockResolveConflict,
+} = vi.hoisted(() => ({
   mockInsertValues: vi.fn(),
   mockDbInsert: vi.fn(),
   mockCreateMemory: vi.fn(),
   mockCheckDedup: vi.fn(),
+  mockDetectConflict: vi.fn(),
+  mockResolveConflict: vi.fn(),
 }));
 
 mockDbInsert.mockImplementation(() => ({ values: mockInsertValues }));
@@ -23,6 +32,11 @@ vi.mock('../../memories/index.js', () => ({
 
 vi.mock('../dedupService.js', () => ({
   checkDedup: mockCheckDedup,
+}));
+
+vi.mock('../../conflicts/index.js', () => ({
+  detectConflict: mockDetectConflict,
+  resolveConflict: mockResolveConflict,
 }));
 
 import { runIngestPipeline } from '../ingestService.js';
@@ -65,6 +79,8 @@ describe('runIngestPipeline', () => {
     ])));
     mockInsertValues.mockResolvedValue(undefined);
     mockCheckDedup.mockResolvedValue({ status: 'new' });
+    mockDetectConflict.mockResolvedValue({ isConflict: false });
+    mockResolveConflict.mockResolvedValue({ status: 'flagged' });
     mockCreateMemory.mockResolvedValue({
       memory: { id: '11111111-1111-4111-8111-111111111111' },
       embeddingId: null,

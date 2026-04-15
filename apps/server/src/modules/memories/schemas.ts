@@ -131,6 +131,7 @@ export const listMemoriesQuerySchema = z.object({
   tier: memoryTierSchema.optional(),
   tag: z.string().min(1).optional(),
   ownerEntityId: z.string().uuid().optional(),
+  conflictStatus: z.enum(['none', 'flagged', 'resolved']).optional(),
   sortBy: z.enum(['createdAt', 'importanceScore', 'accessCount']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });

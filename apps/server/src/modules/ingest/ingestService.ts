@@ -4,6 +4,7 @@ import { env } from '../../common/config/index.js';
 import { db, ingestTraces } from '../../common/db/index.js';
 import type { EmbeddingsProvider } from '../../common/embeddings/index.js';
 import { createMemory } from '../memories/index.js';
+import { detectConflict, resolveConflict } from '../conflicts/index.js';
 import { checkDedup, type DedupResult } from './dedupService.js';
 import {
   extractCandidateMemories,
@@ -279,6 +280,52 @@ export async function runIngestPipeline(
             ...accepted,
             memoryId: memory.id,
           };
+
+          try {
+            const conflict = await detectConflict(
+              tenantId,
+              accepted.content,
+              embeddingsProvider,
+              { excludeMemoryId: memory.id }
+            );
+
+            if (conflict.isConflict && conflict.conflictingMemoryId) {
+              const strategy = env.AUTO_RESOLVE_CONFLICTS ? 'newer-wins' : 'manual';
+              const resolution = await resolveConflict(
+                tenantId,
+                memory.id,
+                conflict.conflictingMemoryId,
+                strategy
+              );
+
+              traceCandidates.push({
+                stage: 'conflict_detection',
+                memoryId: memory.id,
+                conflictingMemoryId: conflict.conflictingMemoryId,
+                confidence: conflict.confidence,
+                explanation: conflict.explanation,
+                status: resolution.status,
+                resolution: resolution.status === 'resolved' ? strategy : null,
+              });
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Conflict detection failed';
+            warnings.push(`Conflict detection skipped: ${message}`);
+            logger?.warn(
+              {
+                err: error,
+                memoryId: memory.id,
+                tenantId,
+              },
+              'Conflict detection failed; continuing ingest'
+            );
+            traceCandidates.push({
+              stage: 'conflict_detection',
+              memoryId: memory.id,
+              status: 'error',
+              error: message,
+            });
+          }
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Memory persistence failed';
           warnings.push(`Failed to persist candidate memory: ${message}`);
