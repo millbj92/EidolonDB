@@ -15,6 +15,7 @@ import {
 
 // Enums
 export const memoryTierEnum = pgEnum('memory_tier', ['short_term', 'episodic', 'semantic']);
+export const grantPermissionEnum = pgEnum('grant_permission', ['read', 'read-write']);
 export const ownerTypeEnum = pgEnum('owner_type', ['memory', 'artifact', 'entity']);
 export const nodeTypeEnum = pgEnum('node_type', ['entity', 'artifact', 'memory']);
 
@@ -93,6 +94,22 @@ export const memories = pgTable('memories', {
   index('memories_owner_entity_id_idx').on(table.ownerEntityId),
   index('memories_tier_idx').on(table.tier),
   index('memories_tenant_session_number_idx').on(table.tenantId, table.sessionNumber),
+]);
+
+// Memory grants table
+export const memoryGrants = pgTable('memory_grants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: text('tenant_id').notNull(),
+  ownerEntityId: uuid('owner_entity_id').notNull().references(() => entities.id, { onDelete: 'cascade' }),
+  granteeEntityId: uuid('grantee_entity_id').references(() => entities.id, { onDelete: 'cascade' }),
+  permission: grantPermissionEnum('permission').notNull().default('read'),
+  scopeTier: memoryTierEnum('scope_tier'),
+  scopeTag: text('scope_tag'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('memory_grants_tenant_idx').on(table.tenantId),
+  index('memory_grants_owner_idx').on(table.ownerEntityId),
+  index('memory_grants_grantee_idx').on(table.granteeEntityId),
 ]);
 
 // Retrieval events table
@@ -206,6 +223,9 @@ export type NewArtifact = typeof artifacts.$inferInsert;
 
 export type Memory = typeof memories.$inferSelect;
 export type NewMemory = typeof memories.$inferInsert;
+
+export type MemoryGrant = typeof memoryGrants.$inferSelect;
+export type NewMemoryGrant = typeof memoryGrants.$inferInsert;
 
 export type RetrievalEvent = typeof retrieval_events.$inferSelect;
 export type NewRetrievalEvent = typeof retrieval_events.$inferInsert;

@@ -67,6 +67,7 @@ export async function buildContext(
         tags,
         weights,
         minScore: 0,
+        includeShared: false,
       },
       { embeddingsProvider }
     );

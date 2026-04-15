@@ -91,7 +91,15 @@ export const memoryQuerySchema = z.object({
 
   // Minimum score threshold (0-1)
   minScore: z.number().min(0).max(1).optional().default(0),
-});
+  includeShared: z.boolean().optional().default(false),
+  requestingEntityId: z.string().uuid().optional(),
+}).refine(
+  (value) => !value.includeShared || Boolean(value.requestingEntityId),
+  {
+    message: 'requestingEntityId is required when includeShared=true',
+    path: ['requestingEntityId'],
+  }
+);
 
 export type MemoryQueryInput = z.infer<typeof memoryQuerySchema>;
 
