@@ -28,6 +28,7 @@ const RBAC_AGENT_A_ID = "00000000-0000-0000-0000-000000000001";
 const RBAC_AGENT_B_ID = "00000000-0000-0000-0000-000000000002";
 let rbacAgentAEntityId = RBAC_AGENT_A_ID;
 let rbacAgentBEntityId = RBAC_AGENT_B_ID;
+const rbacEntityIdsByName = new Map<string, string>();
 
 type MemoryTier = "short_term" | "episodic" | "semantic";
 
@@ -92,6 +93,16 @@ interface CreateGrantResponse {
 interface EntityResponse {
   data?: {
     id?: string;
+  };
+}
+
+interface ListEntitiesResponse {
+  data?: {
+    entities?: Array<{
+      id?: string;
+      type?: string;
+      name?: string;
+    }>;
   };
 }
 
@@ -367,6 +378,7 @@ export async function cleanupEvalTenantGrants(config: RuntimeConfig): Promise<nu
   const limit = 100;
 
   for (;;) {
+    // Intentionally unfiltered so cleanup removes every grant in the eval tenant.
     const listResponse = await fetch(`${config.eidolonDbUrl}/grants?limit=${limit}&offset=0`, {
       method: "GET",
       headers: {
@@ -418,23 +430,40 @@ function getRbacEntityId(agent: "a" | "b"): string {
 
 async function ensureEntityExists(
   config: RuntimeConfig,
-  entityId: string,
   name: string
 ): Promise<string> {
-  const getResponse = await fetch(`${config.eidolonDbUrl}/entities/${entityId}`, {
-    method: "GET",
-    headers: {
-      "x-tenant-id": EVAL_TENANT_ID,
-    },
-  });
-
-  if (getResponse.ok) {
-    return entityId;
+  const cachedId = rbacEntityIdsByName.get(name);
+  if (cachedId) {
+    return cachedId;
   }
 
-  if (getResponse.status !== 404) {
-    const text = await getResponse.text();
-    throw new Error(`Failed to fetch entity ${entityId} (${getResponse.status}): ${text}`);
+  const listResponse = await fetch(
+    `${config.eidolonDbUrl}/entities?type=${encodeURIComponent("agent")}&name=${encodeURIComponent(name)}`,
+    {
+      method: "GET",
+      headers: {
+        "x-tenant-id": EVAL_TENANT_ID,
+      },
+    }
+  );
+
+  if (listResponse.ok) {
+    const json = (await listResponse.json()) as ListEntitiesResponse;
+    const entityId = json.data?.entities?.find(
+      (entity) =>
+        entity?.type === "agent" &&
+        entity?.name === name &&
+        typeof entity?.id === "string" &&
+        entity.id.length > 0
+    )?.id;
+
+    if (entityId) {
+      rbacEntityIdsByName.set(name, entityId);
+      return entityId;
+    }
+  } else if (listResponse.status !== 404) {
+    const text = await listResponse.text();
+    throw new Error(`Failed to list entities for ${name} (${listResponse.status}): ${text}`);
   }
 
   const createResponse = await fetch(`${config.eidolonDbUrl}/entities`, {
@@ -444,7 +473,6 @@ async function ensureEntityExists(
       "x-tenant-id": EVAL_TENANT_ID,
     },
     body: JSON.stringify({
-      id: entityId,
       type: "agent",
       name,
       properties: {
@@ -456,27 +484,22 @@ async function ensureEntityExists(
 
   if (createResponse.ok === false) {
     const text = await createResponse.text();
-    throw new Error(`Failed to create entity ${entityId} (${createResponse.status}): ${text}`);
+    throw new Error(`Failed to create entity ${name} (${createResponse.status}): ${text}`);
   }
 
   const json = (await createResponse.json()) as EntityResponse;
   const createdId = json.data?.id;
   if (typeof createdId !== "string" || createdId.length === 0) {
-    throw new Error(`Entity create response missing id for requested id ${entityId}`);
+    throw new Error(`Entity create response missing id for ${name}`);
   }
 
-  if (createdId !== entityId) {
-    console.warn(
-      `[eval-rbac] requested fixed entity id ${entityId} but server created ${createdId}; using created id`
-    );
-  }
-
+  rbacEntityIdsByName.set(name, createdId);
   return createdId;
 }
 
 export async function ensureRbacEvalEntities(config: RuntimeConfig): Promise<void> {
-  rbacAgentAEntityId = await ensureEntityExists(config, RBAC_AGENT_A_ID, "Eval RBAC Agent A");
-  rbacAgentBEntityId = await ensureEntityExists(config, RBAC_AGENT_B_ID, "Eval RBAC Agent B");
+  rbacAgentAEntityId = await ensureEntityExists(config, "Eval RBAC Agent A");
+  rbacAgentBEntityId = await ensureEntityExists(config, "Eval RBAC Agent B");
 }
 
 async function createOwnedMemory(
@@ -487,27 +510,27 @@ async function createOwnedMemory(
   sessionNumber: number,
   tier: MemoryTier
 ): Promise<void> {
-  const response = await fetch(`${config.eidolonDbUrl}/memories`, {
+  const response = await fetch(`${config.eidolonDbUrl}/ingest`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-tenant-id": EVAL_TENANT_ID,
     },
     body: JSON.stringify({
-      ownerEntityId,
-      tier,
       content,
-      tags: ["eval", scenarioName, "rbac"],
+      source: "chat",
+      ownerEntityId,
       metadata: {
         evalScenario: scenarioName,
         sessionNumber,
+        requestedTier: tier,
       },
     }),
   });
 
   if (response.ok === false) {
     const text = await response.text();
-    throw new Error(`Failed to create memory (${response.status}): ${text}`);
+    throw new Error(`Failed to ingest owned memory (${response.status}): ${text}`);
   }
 }
 
