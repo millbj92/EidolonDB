@@ -194,6 +194,102 @@ POST /memories/query
 
 ---
 
+## Multi-agent memory sharing (RBAC)
+
+By default, each agent's memories are private. Use the grants API to share memories between agents within the same tenant.
+
+### How it works
+
+A **grant** gives one agent read (or read-write) access to another agent's memories. Grants can be scoped to a specific memory tier or tag, or left open to share everything.
+
+```bash
+# Agent A grants Agent B read access to all its memories
+curl -X POST http://localhost:3000/grants \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: my-app" \
+  -d '{
+    "ownerEntityId": "<agent-a-id>",
+    "granteeEntityId": "<agent-b-id>",
+    "permission": "read"
+  }'
+
+# Scope to semantic tier only (long-term knowledge, not short-term working memory)
+curl -X POST http://localhost:3000/grants \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: my-app" \
+  -d '{
+    "ownerEntityId": "<agent-a-id>",
+    "granteeEntityId": "<agent-b-id>",
+    "permission": "read",
+    "scopeTier": "semantic"
+  }'
+
+# Broadcast grant — share with ALL agents in the tenant
+curl -X POST http://localhost:3000/grants \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: my-app" \
+  -d '{
+    "ownerEntityId": "<agent-a-id>",
+    "granteeEntityId": null,
+    "permission": "read"
+  }'
+```
+
+### Querying shared memories
+
+Pass `includeShared: true` and `requestingEntityId` to include memories from agents that have granted access:
+
+```bash
+curl -X POST http://localhost:3000/memories/query \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: my-app" \
+  -d '{
+    "text": "what framework does the project use?",
+    "k": 5,
+    "includeShared": true,
+    "requestingEntityId": "<agent-b-id>"
+  }'
+```
+
+Without `includeShared`, Agent B only sees its own memories — isolation is the default.
+
+### Grant API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/grants` | Create a grant |
+| `GET` | `/grants` | List grants (filter by `ownerEntityId` or `granteeEntityId`) |
+| `GET` | `/grants/:id` | Get a specific grant |
+| `DELETE` | `/grants/:id` | Revoke a grant |
+
+### Permission levels
+
+| Permission | Can read | Can write |
+|------------|----------|-----------|
+| `read` | ✅ | ❌ |
+| `read-write` | ✅ | ✅ |
+
+### Scope options
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `scopeTier` | `short_term` \| `episodic` \| `semantic` \| `null` | Limit to a specific tier. `null` = all tiers |
+| `scopeTag` | `string` \| `null` | Limit to memories with a specific tag. `null` = all tags |
+
+### Eval results (RBAC)
+
+The grant system was validated across 5 scenarios:
+
+| Scenario | Score |
+|----------|-------|
+| Memory isolation (no grant) | 1.000 |
+| Shared read access | 1.000 |
+| Tier-scoped grant (semantic only) | 1.000 |
+| Broadcast grant (all agents) | 1.000 |
+| Grant revocation | 1.000 |
+
+---
+
 ## Memory tiers
 
 | Tier | Lifetime | Use for |
@@ -248,18 +344,33 @@ docker exec eidolondb-postgres psql -U eidolon -d eidolondb \
 
 ## Running the eval suite
 
-The eval measures memory impact across 8 scenarios with three agents: no-memory baseline, RAG baseline (TF-IDF), and EidolonDB.
+The eval measures memory impact across 13 scenarios with three agents: no-memory baseline, RAG baseline (TF-IDF), and EidolonDB. Five additional RBAC scenarios validate the multi-agent memory sharing system.
 
 ```bash
+# Run all scenarios
 OPENAI_API_KEY=sk-... npx tsx eval/run.ts
+
+# Run only core memory scenarios
+OPENAI_API_KEY=sk-... npx tsx eval/run.ts --suite core
+
+# Run only RBAC/sharing scenarios
+OPENAI_API_KEY=sk-... npx tsx eval/run.ts --suite rbac
+
+# Run a single scenario
+OPENAI_API_KEY=sk-... npx tsx eval/run.ts --scenario project-assistant-v1
+
+# List all scenarios
+npx tsx eval/run.ts --list
 ```
 
 Results are saved to `eval/results/`. See `docs/EVAL_LIMITATIONS.md` for known gaps and edge cases.
 
-Latest results:
-- **No-memory baseline:** 0.187 overall
-- **RAG baseline:** ~0.68 overall  
-- **EidolonDB:** 0.959 overall
+**Core memory scenarios (8):**
+- **No-memory baseline:** 0.158 overall
+- **RAG baseline:** 0.933 overall
+- **EidolonDB:** **1.000** overall
+
+**RBAC scenarios (5):** EidolonDB **1.000** across all — isolation, sharing, tier-scoping, broadcast grants, and revocation.
 
 ---
 
