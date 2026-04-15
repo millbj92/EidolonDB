@@ -4,7 +4,7 @@
 
 ## Installation
 
-Run directly with `npx`:
+Run directly with `npx` (no install needed):
 
 ```bash
 npx @eidolondb/mcp
@@ -14,22 +14,72 @@ Or install globally:
 
 ```bash
 npm install -g @eidolondb/mcp
-eidolondb-mcp
 ```
+
+## Self-hosted vs Cloud
+
+### Self-hosted
+
+Point `EIDOLONDB_URL` at your local EidolonDB instance. No API key needed — just set your tenant ID.
+
+```json
+{
+  "EIDOLONDB_URL": "http://localhost:3000",
+  "EIDOLONDB_TENANT": "my-tenant"
+}
+```
+
+### Cloud (eidolondb.com)
+
+Sign up at [eidolondb.com](https://eidolondb.com), create an API key from the dashboard, then use the cloud URL:
+
+```json
+{
+  "EIDOLONDB_URL": "https://api.eidolondb.com",
+  "EIDOLONDB_API_KEY": "eid_live_...",
+  "EIDOLONDB_TENANT": "your-tenant-slug"
+}
+```
+
+Your tenant slug and API key are both visible in the EidolonDB dashboard under **API Keys**.
 
 ## Configuration
 
-Set environment variables before launching the MCP server:
-
 | Variable | Required | Default | Description |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | `EIDOLONDB_URL` | No | `http://localhost:3000` | Base URL of your EidolonDB API |
-| `EIDOLONDB_API_KEY` | No | _(empty)_ | API key sent as `Authorization: Bearer ...` |
-| `EIDOLONDB_TENANT` | No | `default` | Tenant ID sent as `x-tenant-id` |
-
-Copy `apps/mcp/.env.example` as needed.
+| `EIDOLONDB_API_KEY` | Cloud only | _(empty)_ | API key from your dashboard |
+| `EIDOLONDB_TENANT` | No | `default` | Your tenant slug |
 
 ## MCP Client Setup
+
+### Claude Code
+
+```bash
+claude mcp add eidolondb \
+  --env EIDOLONDB_URL=https://api.eidolondb.com \
+  --env EIDOLONDB_API_KEY=eid_live_... \
+  --env EIDOLONDB_TENANT=your-tenant-slug \
+  -- npx -y @eidolondb/mcp
+```
+
+Or add manually to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "eidolondb": {
+      "command": "npx",
+      "args": ["-y", "@eidolondb/mcp"],
+      "env": {
+        "EIDOLONDB_URL": "https://api.eidolondb.com",
+        "EIDOLONDB_API_KEY": "eid_live_...",
+        "EIDOLONDB_TENANT": "your-tenant-slug"
+      }
+    }
+  }
+}
+```
 
 ### Cursor (`~/.cursor/mcp.json`)
 
@@ -40,45 +90,27 @@ Copy `apps/mcp/.env.example` as needed.
       "command": "npx",
       "args": ["-y", "@eidolondb/mcp"],
       "env": {
-        "EIDOLONDB_URL": "http://localhost:3000",
-        "EIDOLONDB_TENANT": "default",
-        "EIDOLONDB_API_KEY": ""
+        "EIDOLONDB_URL": "https://api.eidolondb.com",
+        "EIDOLONDB_API_KEY": "eid_live_...",
+        "EIDOLONDB_TENANT": "your-tenant-slug"
       }
     }
   }
 }
 ```
 
-### Claude Code (`~/.claude/mcp.json`)
-
-```json
-{
-  "mcpServers": {
-    "eidolondb": {
-      "command": "npx",
-      "args": ["-y", "@eidolondb/mcp"],
-      "env": {
-        "EIDOLONDB_URL": "http://localhost:3000",
-        "EIDOLONDB_TENANT": "default",
-        "EIDOLONDB_API_KEY": ""
-      }
-    }
-  }
-}
-```
-
-### Generic stdio config
+### Windsurf / Generic stdio
 
 ```json
 {
   "name": "eidolondb",
   "transport": "stdio",
-  "command": "eidolondb-mcp",
-  "args": [],
+  "command": "npx",
+  "args": ["-y", "@eidolondb/mcp"],
   "env": {
-    "EIDOLONDB_URL": "http://localhost:3000",
-    "EIDOLONDB_TENANT": "default",
-    "EIDOLONDB_API_KEY": ""
+    "EIDOLONDB_URL": "https://api.eidolondb.com",
+    "EIDOLONDB_API_KEY": "eid_live_...",
+    "EIDOLONDB_TENANT": "your-tenant-slug"
   }
 }
 ```
@@ -86,14 +118,10 @@ Copy `apps/mcp/.env.example` as needed.
 ## Available Tools
 
 | Tool | Description | Key Params |
-| --- | --- | --- |
-| `remember` | Store a memory in EidolonDB | `content`, `tier`, `importance`, `tags` |
-| `recall` | Search memories by semantic query | `query`, `k`, `tier` |
-| `ingest` | Ingest raw text for automatic extraction/classification | `text`, `source` |
-| `forget` | Delete one memory by ID | `id` |
-| `list_memories` | List recent memories with optional filters | `tier`, `tag`, `limit` |
+|---|---|---|
+| `remember` | Store a memory | `content`, `tier`, `importance`, `tags` |
+| `recall` | Semantic search across memories | `query`, `k`, `tier` |
+| `ingest` | Feed raw text for auto-extraction | `text`, `source` |
+| `forget` | Delete a memory by ID | `id` |
+| `list_memories` | List recent memories with filters | `tier`, `tag`, `limit` |
 | `get_context` | Build LLM-ready context from memory | `input`, `max_tokens` |
-
-## Self-Hosted vs Cloud
-
-For self-hosted use, point `EIDOLONDB_URL` to your local or private deployment. For cloud usage, point it to your hosted EidolonDB API endpoint and provide the appropriate tenant and API key.
