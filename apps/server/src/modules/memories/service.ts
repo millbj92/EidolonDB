@@ -10,6 +10,7 @@ import {
   type NewRetrievalEvent,
 } from '../../common/db/index.js';
 import type { EmbeddingsProvider } from '../../common/embeddings/index.js';
+import { getGrantsForGrantee } from '../grants/service.js';
 import type {
   CreateMemoryInput,
   MemoryQueryInput,
@@ -430,6 +431,34 @@ interface ScoredMemory {
   importanceScore: number;
 }
 
+interface SharedGrantScope {
+  ownerEntityId: string;
+  scopeTier: MemoryTier | null;
+  scopeTag: string | null;
+}
+
+function isMemoryAllowedBySharedGrants(
+  memory: Memory,
+  requestingEntityId: string,
+  sharedGrantScopesByOwner: Map<string, SharedGrantScope[]>
+): boolean {
+  if (!memory.ownerEntityId || memory.ownerEntityId === requestingEntityId) {
+    return true;
+  }
+
+  const grantScopes = sharedGrantScopesByOwner.get(memory.ownerEntityId);
+  if (!grantScopes || grantScopes.length === 0) {
+    return false;
+  }
+
+  const memoryTags = memory.tags ?? [];
+  return grantScopes.some((scope) => {
+    const tierOk = !scope.scopeTier || scope.scopeTier === memory.tier;
+    const tagOk = !scope.scopeTag || memoryTags.includes(scope.scopeTag);
+    return tierOk && tagOk;
+  });
+}
+
 function extractSessionNumberFromMetadata(metadata: Record<string, unknown> | undefined): number | null {
   if (!metadata) {
     return null;
@@ -478,7 +507,41 @@ export async function queryMemories(
     temporal,
     weights,
     minScore,
+    includeShared,
+    requestingEntityId,
   } = input;
+
+  let allowedOwnerEntityIds: string[] | null = null;
+  const sharedGrantScopesByOwner = new Map<string, SharedGrantScope[]>();
+
+  if (includeShared && requestingEntityId) {
+    const grants = await getGrantsForGrantee(tenantId, requestingEntityId);
+    const readableGrants = grants.filter((grant) => grant.permission === 'read' || grant.permission === 'read-write');
+
+    for (const grant of readableGrants) {
+      const scopes = sharedGrantScopesByOwner.get(grant.ownerEntityId) ?? [];
+      scopes.push({
+        ownerEntityId: grant.ownerEntityId,
+        scopeTier: grant.scopeTier,
+        scopeTag: grant.scopeTag,
+      });
+      sharedGrantScopesByOwner.set(grant.ownerEntityId, scopes);
+    }
+
+    const candidateOwners = new Set<string>([requestingEntityId, ...sharedGrantScopesByOwner.keys()]);
+
+    if (ownerEntityId) {
+      if (candidateOwners.has(ownerEntityId)) {
+        allowedOwnerEntityIds = [ownerEntityId];
+      } else {
+        return [];
+      }
+    } else {
+      allowedOwnerEntityIds = [...candidateOwners];
+    }
+  } else if (ownerEntityId) {
+    allowedOwnerEntityIds = [ownerEntityId];
+  }
 
   let temporalSessionNumber: number | null = null;
   let temporalCreatedAfter: Date | null = null;
@@ -560,8 +623,9 @@ export async function queryMemories(
     // Build filter conditions for the query
     const conditions: string[] = [`m.tenant_id = '${tenantId}'`];
 
-    if (ownerEntityId) {
-      conditions.push(`m.owner_entity_id = '${ownerEntityId}'`);
+    if (allowedOwnerEntityIds && allowedOwnerEntityIds.length > 0) {
+      const ownerList = allowedOwnerEntityIds.map((id) => `'${id}'`).join(',');
+      conditions.push(`m.owner_entity_id IN (${ownerList})`);
     }
     if (tiers && tiers.length > 0) {
       const tierList = tiers.map((t) => `'${t}'`).join(',');
@@ -632,8 +696,8 @@ export async function queryMemories(
     // Non-vector search path (filter only)
     const conditions = [eq(memories.tenantId, tenantId)];
 
-    if (ownerEntityId) {
-      conditions.push(eq(memories.ownerEntityId, ownerEntityId));
+    if (allowedOwnerEntityIds && allowedOwnerEntityIds.length > 0) {
+      conditions.push(inArray(memories.ownerEntityId, allowedOwnerEntityIds));
     }
     if (tiers && tiers.length > 0) {
       conditions.push(inArray(memories.tier, tiers as [MemoryTier, ...MemoryTier[]]));
@@ -686,6 +750,12 @@ export async function queryMemories(
         return tags.some((t) => memTags.includes(t));
       });
     }
+  }
+
+  if (includeShared && requestingEntityId) {
+    scoredMemories = scoredMemories.filter((scoredMemory) =>
+      isMemoryAllowedBySharedGrants(scoredMemory.memory, requestingEntityId, sharedGrantScopesByOwner)
+    );
   }
 
   // Calculate final scores and sort

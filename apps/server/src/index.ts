@@ -13,6 +13,7 @@ import { ingestRoutes } from './modules/ingest/index.js';
 import { lifecycleRoutes } from './modules/lifecycle/index.js';
 import { scheduleLifecycle } from './modules/lifecycle/scheduler.js';
 import { feedbackRoutes } from './modules/feedback/index.js';
+import { grantsRoutes } from './modules/grants/index.js';
 
 async function main() {
   const fastify = Fastify({
@@ -37,6 +38,7 @@ async function main() {
   await fastify.register(ingestRoutes);
   await fastify.register(lifecycleRoutes);
   await fastify.register(feedbackRoutes);
+  await fastify.register(grantsRoutes);
 
   // Global error handler
   fastify.setErrorHandler((error: Error, _request, reply) => {

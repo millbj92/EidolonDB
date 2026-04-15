@@ -116,6 +116,7 @@ export async function checkDedup(
           importance: 0,
         },
         minScore: 0,
+        includeShared: false,
       },
       { embeddingsProvider }
     );
