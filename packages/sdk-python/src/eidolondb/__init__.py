@@ -5,13 +5,15 @@ from typing import Any, List, Optional
 from ._client import EidolonDBClient, EidolonDBConfig, EidolonDBError
 from . import _types as _types_module
 from ._types import *
-from ._types import IngestSource, Memory, MemorySearchResult, MemoryTier, TemporalFilter
+from ._types import ConflictDetectResult, ConflictResolutionStrategy, IngestSource, Memory, MemorySearchResult, MemoryTier, TemporalFilter
 from .resources import (
     ArtifactsResource,
+    ConflictsResource,
     ContextResource,
     EntitiesResource,
     EventsResource,
     FeedbackResource,
+    GrantsResource,
     IngestResource,
     LifecycleResource,
     MemoriesResource,
@@ -28,6 +30,8 @@ class EidolonDB:
     context: ContextResource
     lifecycle: LifecycleResource
     feedback: FeedbackResource
+    grants: GrantsResource
+    conflicts: ConflictsResource
     _ingest: IngestResource
 
     def __init__(self, url: str, tenant: str, timeout: int = 30):
@@ -40,6 +44,8 @@ class EidolonDB:
         self.context = ContextResource(client)
         self.lifecycle = LifecycleResource(client)
         self.feedback = FeedbackResource(client)
+        self.grants = GrantsResource(client)
+        self.conflicts = ConflictsResource(client)
         self._ingest = IngestResource(client)
 
     def remember(
@@ -87,6 +93,22 @@ class EidolonDB:
     def search(self, query: str, **kwargs: Any) -> List[MemorySearchResult]:
         return self.memories.search(query, **kwargs)
 
+    def detect_conflicts(
+        self,
+        auto_resolve: bool = False,
+        strategy: ConflictResolutionStrategy = "newer-wins",
+        limit: int = 50,
+    ) -> ConflictDetectResult:
+        return self.conflicts.detect(auto_resolve=auto_resolve, strategy=strategy, limit=limit)
+
+    def resolve_conflict(
+        self,
+        memory_id_a: str,
+        memory_id_b: str,
+        strategy: ConflictResolutionStrategy,
+    ) -> dict:
+        return self.conflicts.resolve(memory_id_a=memory_id_a, memory_id_b=memory_id_b, strategy=strategy)
+
 
 __all__ = [
     "EidolonDB",
@@ -101,6 +123,8 @@ __all__ = [
     "ContextResource",
     "LifecycleResource",
     "FeedbackResource",
+    "GrantsResource",
+    "ConflictsResource",
     "IngestResource",
 ]
 

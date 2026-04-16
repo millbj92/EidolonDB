@@ -1,5 +1,8 @@
 import { EidolonDBClient, type EidolonDBConfig } from './client.js';
 import type {
+  ConflictDetectInput,
+  ConflictDetectResult,
+  ConflictResolutionStrategy,
   CreateMemoryInput,
   IngestRequest,
   IngestResponse,
@@ -10,9 +13,11 @@ import type {
   TemporalFilter,
 } from './types.js';
 import { ArtifactsResource } from './resources/artifacts.js';
+import { ConflictsResource } from './resources/conflicts.js';
 import { ContextResource } from './resources/context.js';
 import { EntitiesResource } from './resources/entities.js';
 import { EventsResource } from './resources/events.js';
+import { GrantsResource } from './resources/grants.js';
 import { IngestResource } from './resources/ingest.js';
 import { LifecycleResource } from './resources/lifecycle.js';
 import { MemoriesResource } from './resources/memories.js';
@@ -31,6 +36,8 @@ export { ContextResource } from './resources/context.js';
 export { LifecycleResource } from './resources/lifecycle.js';
 export { IngestResource } from './resources/ingest.js';
 export { FeedbackResource } from './resources/feedback.js';
+export { GrantsResource } from './resources/grants.js';
+export { ConflictsResource } from './resources/conflicts.js';
 
 export class EidolonDB {
   readonly memories: MemoriesResource;
@@ -41,6 +48,8 @@ export class EidolonDB {
   readonly context: ContextResource;
   readonly lifecycle: LifecycleResource;
   readonly feedback: FeedbackResource;
+  readonly grants: GrantsResource;
+  readonly conflicts: ConflictsResource;
   private readonly _ingest: IngestResource;
 
   constructor(config: EidolonDBConfig) {
@@ -53,6 +62,8 @@ export class EidolonDB {
     this.context = new ContextResource(client);
     this.lifecycle = new LifecycleResource(client);
     this.feedback = new FeedbackResource(client);
+    this.grants = new GrantsResource(client);
+    this.conflicts = new ConflictsResource(client);
     this._ingest = new IngestResource(client);
   }
 
@@ -112,5 +123,23 @@ export class EidolonDB {
 
     const results = await this.memories.search(query, options);
     return results.map((result) => result.memory.content);
+  }
+
+  /**
+   * Convenience conflict detection API.
+   */
+  detectConflicts(options?: ConflictDetectInput): Promise<ConflictDetectResult> {
+    return this.conflicts.detect(options);
+  }
+
+  /**
+   * Convenience conflict resolution API.
+   */
+  resolveConflict(
+    memoryIdA: string,
+    memoryIdB: string,
+    strategy: ConflictResolutionStrategy
+  ): Promise<{ ok: boolean }> {
+    return this.conflicts.resolve({ memoryIdA, memoryIdB, strategy });
   }
 }

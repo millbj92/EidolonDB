@@ -86,6 +86,22 @@ def test_search_sends_post_memories_query():
         assert json.loads(req.data.decode("utf-8")) == {"text": "user prefs", "k": 10}
 
 
+def test_list_includes_conflict_status_query_param():
+    db = EidolonDB(url="http://localhost:3000", tenant="test-tenant")
+
+    with patch("eidolondb._client.request.urlopen") as mock_urlopen:
+        mock_urlopen.return_value = _json_response({"data": {"memories": [], "total": 0, "offset": 0, "limit": 20}})
+
+        db.memories.list(conflict_status="flagged", limit=5, offset=2)
+
+        req = mock_urlopen.call_args[0][0]
+        assert req.get_method() == "GET"
+        assert req.full_url == (
+            "http://localhost:3000/memories"
+            "?limit=5&offset=2&sortBy=createdAt&sortOrder=desc&conflictStatus=flagged"
+        )
+
+
 def test_raises_eidolondb_error_on_non_2xx():
     db = EidolonDB(url="http://localhost:3000", tenant="test-tenant")
 

@@ -25,7 +25,7 @@ const config: Config = {
 
 const server = new McpServer({
   name: '@eidolondb/mcp',
-  version: '0.1.0',
+  version: '0.2.0',
 });
 
 function getHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -112,6 +112,9 @@ async function requestEidolonDB<T>(
 
 const tierSchema = z.enum(['short_term', 'episodic', 'semantic']);
 const sourceSchema = z.enum(['chat', 'note', 'event', 'document', 'system']);
+const permissionSchema = z.enum(['read', 'read-write']);
+const conflictStrategySchema = z.enum(['newer-wins', 'higher-importance', 'merge', 'manual']);
+const conflictStatusSchema = z.enum(['none', 'flagged', 'resolved']);
 
 server.tool(
   'remember',
@@ -257,9 +260,10 @@ server.tool(
   {
     tier: tierSchema.optional().describe('Filter by tier'),
     tag: z.string().min(1).optional().describe('Filter by tag'),
+    conflictStatus: conflictStatusSchema.optional().describe('Filter by conflict status'),
     limit: z.number().int().min(1).max(100).default(20).describe('Number of memories to return (max 100)'),
   },
-  async ({ tier, tag, limit }) => {
+  async ({ tier, tag, conflictStatus, limit }) => {
     try {
       const params = new URLSearchParams();
       params.set('limit', String(limit));
@@ -267,6 +271,7 @@ server.tool(
       params.set('sortOrder', 'desc');
       if (tier) params.set('tier', tier);
       if (tag) params.set('tag', tag);
+      if (conflictStatus) params.set('conflictStatus', conflictStatus);
 
       const data = await requestEidolonDB<{ memories?: unknown[] }>(
         `/memories?${params.toString()}`,
@@ -286,6 +291,209 @@ server.tool(
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to list memories.';
       return textResult(`Unable to list memories: ${message}`);
+    }
+  }
+);
+
+server.tool(
+  'create_grant',
+  'Grant another agent access to your memories. Use this to share memories with other agents in your tenant.',
+  {
+    ownerEntityId: z.string().min(1).describe('Entity ID of the agent sharing memories'),
+    granteeEntityId: z.string().min(1).optional().describe('Entity ID of the agent to grant access to. Omit for broadcast (all agents)'),
+    permission: permissionSchema.default('read').describe('Grant permission'),
+    scopeTier: tierSchema.optional().describe('Limit grant to a specific memory tier'),
+    scopeTag: z.string().min(1).optional().describe('Limit grant to memories with a specific tag'),
+  },
+  async ({ ownerEntityId, granteeEntityId, permission, scopeTier, scopeTag }) => {
+    try {
+      const data = await requestEidolonDB<{ id?: string }>(
+        '/grants',
+        {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            ownerEntityId,
+            granteeEntityId,
+            permission,
+            scopeTier,
+            scopeTag,
+          }),
+        }
+      );
+
+      const id = data && typeof data === 'object' && 'id' in data ? (data.id as string | undefined) : undefined;
+      const grantee = granteeEntityId ?? 'all agents';
+      return textResult(
+        `Grant created${id ? ` (id: ${id})` : ''}. Agent ${grantee} can now ${permission} memories from ${ownerEntityId}.`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create grant.';
+      return textResult(`Unable to create grant: ${message}`);
+    }
+  }
+);
+
+server.tool(
+  'list_grants',
+  'List memory sharing grants for your tenant.',
+  {
+    ownerEntityId: z.string().min(1).optional().describe('Filter by owner agent'),
+    granteeEntityId: z.string().min(1).optional().describe('Filter by grantee agent'),
+    limit: z.number().int().min(1).max(100).default(20).describe('Number of grants to return (max 100)'),
+  },
+  async ({ ownerEntityId, granteeEntityId, limit }) => {
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', String(limit));
+      if (ownerEntityId) params.set('ownerEntityId', ownerEntityId);
+      if (granteeEntityId) params.set('granteeEntityId', granteeEntityId);
+
+      const data = await requestEidolonDB<{ grants?: unknown[] } | unknown[]>(
+        `/grants?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: getHeaders({ Accept: 'application/json' }),
+        }
+      );
+
+      const grants = Array.isArray(data)
+        ? data
+        : data && typeof data === 'object' && Array.isArray((data as { grants?: unknown[] }).grants)
+          ? (data as { grants: unknown[] }).grants
+          : [];
+
+      if (grants.length === 0) {
+        return textResult('No grants found.');
+      }
+
+      const lines = grants.map((grant) => {
+        if (!grant || typeof grant !== 'object') {
+          return '- [unknown] Invalid grant payload';
+        }
+
+        const item = grant as Record<string, unknown>;
+        const id = typeof item['id'] === 'string' ? item['id'] : 'unknown';
+        const owner = typeof item['ownerEntityId'] === 'string' ? item['ownerEntityId'] : 'unknown';
+        const grantee = typeof item['granteeEntityId'] === 'string' ? item['granteeEntityId'] : 'all agents';
+        const permission = typeof item['permission'] === 'string' ? item['permission'] : 'read';
+        const tier = typeof item['scopeTier'] === 'string' ? item['scopeTier'] : 'any tier';
+        const tag = typeof item['scopeTag'] === 'string' ? item['scopeTag'] : 'any tag';
+        return `- ${id}: ${owner} -> ${grantee} (${permission}; tier=${tier}; tag=${tag})`;
+      });
+
+      return textResult(lines.join('\n'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to list grants.';
+      return textResult(`Unable to list grants: ${message}`);
+    }
+  }
+);
+
+server.tool(
+  'delete_grant',
+  'Revoke a memory sharing grant.',
+  {
+    id: z.string().min(1).describe('Grant ID to revoke'),
+  },
+  async ({ id }) => {
+    try {
+      await requestEidolonDB<{ deleted?: boolean }>(
+        `/grants/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+          headers: getHeaders(),
+        }
+      );
+
+      return textResult(`Grant ${id} revoked successfully.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete grant.';
+      return textResult(`Unable to revoke grant: ${message}`);
+    }
+  }
+);
+
+server.tool(
+  'detect_conflicts',
+  'Scan memories for contradictions and optionally resolve them automatically.',
+  {
+    autoResolve: z.boolean().default(false).describe('Automatically resolve found conflicts'),
+    strategy: conflictStrategySchema
+      .default('newer-wins')
+      .describe('Resolution strategy when autoResolve is true'),
+    limit: z.number().int().min(1).max(1000).default(50).describe('Max memories to scan'),
+  },
+  async ({ autoResolve, strategy, limit }) => {
+    try {
+      const data = await requestEidolonDB<{
+        scanned?: number;
+        conflictsFound?: number;
+        autoResolved?: number;
+        conflicts?: unknown[];
+      }>(
+        '/conflicts/detect',
+        {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ autoResolve, strategy, limit }),
+        }
+      );
+
+      const scanned = data?.scanned ?? 0;
+      const conflictsFound = data?.conflictsFound ?? 0;
+      const autoResolved = data?.autoResolved ?? 0;
+      const conflicts = Array.isArray(data?.conflicts) ? data.conflicts : [];
+
+      const summary = `Scanned ${scanned} memories. Found ${conflictsFound} conflicts, auto-resolved ${autoResolved}.`;
+      if (conflicts.length === 0) {
+        return textResult(summary);
+      }
+
+      const lines = conflicts.map((conflict) => {
+        if (!conflict || typeof conflict !== 'object') {
+          return '- conflict: [invalid payload]';
+        }
+
+        const item = conflict as Record<string, unknown>;
+        const id = typeof item['id'] === 'string' ? item['id'] : 'unknown';
+        const memoryIdA = typeof item['memoryIdA'] === 'string' ? item['memoryIdA'] : 'unknown';
+        const memoryIdB = typeof item['memoryIdB'] === 'string' ? item['memoryIdB'] : 'unknown';
+        const explanation = typeof item['explanation'] === 'string' ? item['explanation'] : 'No explanation provided';
+        return `- ${id}: ${memoryIdA} vs ${memoryIdB} - ${explanation}`;
+      });
+
+      return textResult(`${summary}\n${lines.join('\n')}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to detect conflicts.';
+      return textResult(`Unable to detect conflicts: ${message}`);
+    }
+  }
+);
+
+server.tool(
+  'resolve_conflict',
+  'Manually resolve a specific contradiction between two memories.',
+  {
+    memoryIdA: z.string().min(1).describe('First memory ID'),
+    memoryIdB: z.string().min(1).describe('Second memory ID'),
+    strategy: conflictStrategySchema.describe('Resolution strategy'),
+  },
+  async ({ memoryIdA, memoryIdB, strategy }) => {
+    try {
+      await requestEidolonDB<{ resolved?: boolean }>(
+        '/conflicts/resolve',
+        {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ memoryIdA, memoryIdB, strategy }),
+        }
+      );
+
+      return textResult(`Conflict resolved using ${strategy} strategy.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to resolve conflict.';
+      return textResult(`Unable to resolve conflict: ${message}`);
     }
   }
 );

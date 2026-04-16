@@ -2,6 +2,9 @@ export type MemoryTier = 'short_term' | 'episodic' | 'semantic';
 export type DedupStatus = 'new' | 'duplicate' | 'near_duplicate' | 'conflict' | 'needs_review';
 export type IngestSource = 'chat' | 'note' | 'event' | 'document' | 'system';
 export type RelationNodeType = 'entity' | 'artifact' | 'memory';
+export type GrantPermission = 'read' | 'read-write';
+export type ConflictStatus = 'none' | 'flagged' | 'resolved';
+export type ConflictResolutionStrategy = 'newer-wins' | 'higher-importance' | 'merge' | 'manual';
 
 export interface Memory {
   id: string;
@@ -76,15 +79,18 @@ export interface SearchMemoriesOptions {
   temporal?: TemporalFilter;
 }
 
-export interface ListMemoriesOptions {
+export interface ListMemoriesQuery {
   offset?: number;
   limit?: number;
   tier?: MemoryTier;
   tag?: string;
   ownerEntityId?: string;
+  conflictStatus?: ConflictStatus;
   sortBy?: 'createdAt' | 'importanceScore' | 'accessCount';
   sortOrder?: 'asc' | 'desc';
 }
+
+export type ListMemoriesOptions = ListMemoriesQuery;
 
 export interface MemorySearchResult {
   memory: Memory;
@@ -223,6 +229,62 @@ export interface LifecycleRun {
   errors: string[];
   completedAt: string | null;
   createdAt: string;
+}
+
+export interface Grant {
+  id: string;
+  tenantId: string;
+  ownerEntityId: string;
+  granteeEntityId: string | null;
+  permission: GrantPermission;
+  scopeTier: MemoryTier | null;
+  scopeTag: string | null;
+  createdAt: string;
+}
+
+export interface CreateGrantInput {
+  ownerEntityId: string;
+  granteeEntityId?: string | null;
+  permission?: GrantPermission;
+  scopeTier?: MemoryTier | null;
+  scopeTag?: string | null;
+}
+
+export interface ListGrantsQuery {
+  ownerEntityId?: string;
+  granteeEntityId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ConflictDetectInput {
+  autoResolve?: boolean;
+  strategy?: ConflictResolutionStrategy;
+  limit?: number;
+}
+
+export interface ConflictResolveInput {
+  memoryIdA: string;
+  memoryIdB: string;
+  strategy: ConflictResolutionStrategy;
+}
+
+export interface ConflictPair {
+  memoryIdA: string;
+  contentA: string;
+  memoryIdB: string;
+  contentB: string;
+  confidence: number;
+  explanation: string;
+  status: 'flagged' | 'resolved';
+  resolution: ConflictResolutionStrategy | null;
+}
+
+export interface ConflictDetectResult {
+  scanned: number;
+  conflictsFound: number;
+  autoResolved: number;
+  conflicts: ConflictPair[];
 }
 
 export interface Entity {
