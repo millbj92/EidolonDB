@@ -12,13 +12,15 @@ EidolonDB's LLM extraction pipeline uses gpt-4o-mini to extract facts from sessi
 
 ## 2. Preference Drift & Contradiction Resolution
 
-When a user updates a fact (e.g., changes port from 8080 to 3000), EidolonDB stores both facts. The retrieval system returns whichever is most semantically similar to the query - it does NOT guarantee the most recent fact wins.
+~~When a user updates a fact (e.g., changes port from 8080 to 3000), EidolonDB stores both facts with no automatic conflict resolution.~~
 
-**Current behavior:** The LLM is instructed to prefer "latest in-session statement", but if two conflicting memories are retrieved from past sessions, there's no automatic conflict resolution.
+**Resolved (2026-04-15):** Conflict detection and resolution is now implemented.
+- `POST /conflicts/detect` scans tenant memories for contradictions using vector similarity + LLM judge
+- Resolution strategies: `newer-wins`, `higher-importance`, `merge` (LLM synthesis), `manual`
+- `AUTO_RESOLVE_CONFLICTS=true` enables automatic resolution at ingest time
+- Ingest pipeline hooks in non-blocking conflict detection after each accepted memory
 
-**Eval coverage:** `contradictory-memory-v1` scenario. Expected: good on updates within a session, degraded on cross-session contradictions.
-
-**Planned:** Conflict resolution module (Phase 4 roadmap).
+**Eval coverage:** `contradictory-memory-v1` (context-level), `conflict-detection-v1`, `conflict-merge-v1`, `conflict-newer-wins-v1`. All scoring 1.000.
 
 ## 3. Information Density Limits
 

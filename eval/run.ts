@@ -6,6 +6,7 @@ import {
   createRagBaselineAgent,
   createEidolonDbAgent,
   createEidolonDbRbacAgent,
+  createEidolonDbConflictAgent,
   cleanupEvalTenantMemories,
   cleanupEvalTenantGrants,
   ensureRbacEvalEntities,
@@ -27,7 +28,7 @@ import { computeAgentMetrics, scoreRecall } from "./scorer.js";
 
 const RESULTS_DIR = path.resolve("eval/results");
 const HISTORY_FILE = path.join(RESULTS_DIR, "history.jsonl");
-type SuiteName = "all" | "core" | "rbac";
+type SuiteName = "all" | "core" | "rbac" | "conflict";
 
 interface CliOptions {
   suite: SuiteName;
@@ -67,8 +68,10 @@ function parseCliArgs(argv: string[]): CliOptions {
 
     if (arg === "--suite") {
       const value = argv[index + 1];
-      if (value !== "all" && value !== "core" && value !== "rbac") {
-        throw new Error(`Invalid --suite value: ${value ?? "<missing>"}. Expected one of: all, core, rbac`);
+      if (value !== "all" && value !== "core" && value !== "rbac" && value !== "conflict") {
+        throw new Error(
+          `Invalid --suite value: ${value ?? "<missing>"}. Expected one of: all, core, rbac, conflict`
+        );
       }
       suite = value;
       index += 1;
@@ -258,6 +261,10 @@ function isRbacScenario(scenario: ScenarioDefinition): boolean {
   return scenario.name.startsWith("rbac-");
 }
 
+function isConflictScenario(scenario: ScenarioDefinition): boolean {
+  return scenario.name.startsWith("conflict-");
+}
+
 function selectScenarios(allScenarios: ScenarioDefinition[], options: CliOptions): ScenarioDefinition[] {
   if (options.scenario) {
     const matched = allScenarios.find((scenario) => scenario.name === options.scenario);
@@ -268,11 +275,15 @@ function selectScenarios(allScenarios: ScenarioDefinition[], options: CliOptions
   }
 
   if (options.suite === "core") {
-    return allScenarios.filter((scenario) => !isRbacScenario(scenario));
+    return allScenarios.filter((scenario) => !isRbacScenario(scenario) && !isConflictScenario(scenario));
   }
 
   if (options.suite === "rbac") {
     return allScenarios.filter((scenario) => isRbacScenario(scenario));
+  }
+
+  if (options.suite === "conflict") {
+    return allScenarios.filter((scenario) => isConflictScenario(scenario));
   }
 
   return allScenarios;
@@ -313,7 +324,7 @@ async function main(): Promise<void> {
   if (cliOptions.listOnly) {
     console.log("Available scenarios:");
     for (const scenario of SCENARIOS) {
-      const suite = isRbacScenario(scenario) ? "rbac" : "core";
+      const suite = isRbacScenario(scenario) ? "rbac" : isConflictScenario(scenario) ? "conflict" : "core";
       console.log(`- ${scenario.name} [${suite}]`);
     }
     return;
@@ -346,8 +357,11 @@ async function main(): Promise<void> {
     const scenarioStartedAt = Date.now();
     const scenarioErrors: string[] = [];
     const rbacScenario = isRbacScenario(scenario);
+    const conflictScenario = isConflictScenario(scenario);
 
-    console.log(`Starting scenario: ${scenario.name}${rbacScenario ? " [RBAC]" : ""}`);
+    console.log(
+      `Starting scenario: ${scenario.name}${rbacScenario ? " [RBAC]" : ""}${conflictScenario ? " [CONFLICT]" : ""}`
+    );
 
     try {
       const deleted = await cleanupEvalTenantMemories(config);
@@ -412,6 +426,15 @@ async function main(): Promise<void> {
         `[${scenario.name}] [note] RBAC scenario executed with eidolondb_rbac only; ` +
         "baseline and rag_baseline metrics are placeholders set to 0.";
       console.log(note);
+    } else if (conflictScenario) {
+      const conflictAgent = createEidolonDbConflictAgent(config);
+      eidolonSessions = await runAgentScenario(scenario, conflictAgent, scenarioErrors);
+      eidolondb = computeAgentMetrics("eidolondb_conflict", eidolonSessions, scenario);
+
+      const note =
+        `[${scenario.name}] [note] CONFLICT scenario executed with eidolondb_conflict only; ` +
+        "baseline and rag_baseline metrics are placeholders set to 0.";
+      console.log(note);
     } else {
       const baselineAgent = createBaselineAgent(config);
       const ragBaselineAgent = createRagBaselineAgent(config);
@@ -448,7 +471,7 @@ async function main(): Promise<void> {
     scenarioResults.push(scenarioResult);
 
     console.log(
-      `[${scenario.name}] Summary baseline(overall=${baseline.overallScore.toFixed(3)}) rag_baseline(overall=${rag_baseline.overallScore.toFixed(3)}) ${rbacScenario ? "eidolondb_rbac" : "eidolondb"}(overall=${eidolondb.overallScore.toFixed(3)}) delta=${scenarioResult.delta.overallScore.toFixed(3)}`
+      `[${scenario.name}] Summary baseline(overall=${baseline.overallScore.toFixed(3)}) rag_baseline(overall=${rag_baseline.overallScore.toFixed(3)}) ${rbacScenario ? "eidolondb_rbac" : conflictScenario ? "eidolondb_conflict" : "eidolondb"}(overall=${eidolondb.overallScore.toFixed(3)}) delta=${scenarioResult.delta.overallScore.toFixed(3)}`
     );
   }
 
