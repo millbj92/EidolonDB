@@ -8,6 +8,9 @@ IngestSource = Literal["chat", "note", "event", "document", "system"]
 RelationNodeType = Literal["entity", "artifact", "memory"]
 LifecycleActionType = Literal["expired", "promoted", "distilled", "archived", "unchanged", "error"]
 ContextMessageRole = Literal["system", "user", "assistant"]
+GrantPermission = Literal["read", "read-write"]
+ConflictStatus = Literal["none", "flagged", "resolved"]
+ConflictResolutionStrategy = Literal["newer-wins", "higher-importance", "merge", "manual"]
 
 
 class Memory(TypedDict):
@@ -25,8 +28,39 @@ class Memory(TypedDict):
     lastAccessedAt: Optional[str]
     tags: List[str]
     metadata: Dict[str, Any]
+    conflictStatus: Optional[str]
+    conflictGroupId: Optional[str]
     createdAt: str
     updatedAt: str
+
+
+class Grant(TypedDict):
+    id: str
+    tenantId: str
+    ownerEntityId: str
+    granteeEntityId: Optional[str]
+    permission: GrantPermission
+    scopeTier: Optional[str]
+    scopeTag: Optional[str]
+    createdAt: str
+
+
+class ConflictPair(TypedDict):
+    memoryIdA: str
+    contentA: str
+    memoryIdB: str
+    contentB: str
+    confidence: float
+    explanation: str
+    status: str
+    resolution: Optional[str]
+
+
+class ConflictDetectResult(TypedDict):
+    scanned: int
+    conflictsFound: int
+    autoResolved: int
+    conflicts: List[ConflictPair]
 
 
 class CreateMemoryInput(TypedDict, total=False):

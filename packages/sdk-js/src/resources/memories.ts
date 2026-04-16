@@ -25,7 +25,14 @@ export class MemoriesResource {
 
   /** List memories with optional filters. */
   list(options?: ListMemoriesOptions): Promise<ListMemoriesResponse> {
-    return this.client.request<ListMemoriesResponse>('GET', '/memories', undefined, { query: options });
+    const query = options
+      ? {
+          ...options,
+          conflictStatus: options.conflictStatus,
+        }
+      : undefined;
+
+    return this.client.request<ListMemoriesResponse>('GET', '/memories', undefined, { query });
   }
 
   /** Update a memory. */

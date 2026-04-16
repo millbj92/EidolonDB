@@ -41,6 +41,7 @@ class MemoriesResource:
         sort_by: str = "createdAt",
         sort_order: str = "desc",
         owner_entity_id: Optional[str] = None,
+        conflict_status: Optional[str] = None,
     ) -> ListMemoriesResponse:
         params: Dict[str, Any] = {
             "tier": tier,
@@ -50,6 +51,7 @@ class MemoriesResource:
             "sortBy": sort_by,
             "sortOrder": sort_order,
             "ownerEntityId": owner_entity_id,
+            "conflictStatus": conflict_status,
         }
         return self._client.request("GET", "/memories", params=params)
 
