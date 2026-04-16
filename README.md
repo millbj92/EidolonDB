@@ -436,6 +436,10 @@ Results are saved to `eval/results/`. See `docs/EVAL_LIMITATIONS.md` for known g
 
 **RBAC scenarios (5):** EidolonDB **1.000** across all — isolation, sharing, tier-scoping, broadcast grants, and revocation.
 
+**Conflict resolution scenarios (3):** EidolonDB **1.000** across all — detection, merge, and newer-wins.
+
+**Full suite aggregate (16 scenarios):** EidolonDB **0.982**, baseline 0.079, RAG 0.476. Delta: **+0.904**.
+
 ---
 
 ## Environment variables
