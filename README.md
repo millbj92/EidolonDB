@@ -290,6 +290,70 @@ The grant system was validated across 5 scenarios:
 
 ---
 
+## Conflict detection & resolution
+
+When two memories make contradictory claims, EidolonDB can detect and resolve the conflict automatically.
+
+### Detect conflicts
+
+```bash
+# Scan for contradictions in your tenant
+curl -X POST http://localhost:3000/conflicts/detect \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: my-app" \
+  -d '{ "autoResolve": false, "limit": 50 }'
+
+# Auto-resolve with newer-wins strategy
+curl -X POST http://localhost:3000/conflicts/detect \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: my-app" \
+  -d '{ "autoResolve": true, "strategy": "newer-wins" }'
+```
+
+### Resolve a specific conflict
+
+```bash
+curl -X POST http://localhost:3000/conflicts/resolve \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: my-app" \
+  -d '{
+    "memoryIdA": "<id-of-first-memory>",
+    "memoryIdB": "<id-of-second-memory>",
+    "strategy": "merge"
+  }'
+```
+
+### Resolution strategies
+
+| Strategy | Behaviour |
+|---|---|
+| `newer-wins` | Keep the more recently created memory, mark the other resolved |
+| `higher-importance` | Keep the higher importance-scored memory |
+| `merge` | LLM synthesizes both into a single reconciled memory |
+| `manual` | Flag both as conflicted, leave resolution to the caller |
+
+### Auto-resolution at ingest time
+
+Set `AUTO_RESOLVE_CONFLICTS=true` in your environment to automatically detect and resolve conflicts every time a new memory is ingested. Default strategy is `newer-wins`.
+
+### Query conflicted memories
+
+```bash
+# List all flagged (unresolved) conflicts
+curl "http://localhost:3000/memories?conflictStatus=flagged" \
+  -H "x-tenant-id: my-app"
+```
+
+### Eval results (conflict resolution)
+
+| Scenario | Score |
+|---|---|
+| Conflict detection | 1.000 |
+| Merge strategy | 1.000 |
+| Newer-wins strategy | 1.000 |
+
+---
+
 ## Memory tiers
 
 | Tier | Lifetime | Use for |
