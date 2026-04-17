@@ -22,6 +22,7 @@ from .resources import (
 
 
 class EidolonDB:
+    _client: EidolonDBClient
     memories: MemoriesResource
     entities: EntitiesResource
     artifacts: ArtifactsResource
@@ -35,18 +36,18 @@ class EidolonDB:
     _ingest: IngestResource
 
     def __init__(self, url: str, tenant: str, timeout: int = 30):
-        client = EidolonDBClient(EidolonDBConfig(url=url, tenant=tenant, timeout=timeout))
-        self.memories = MemoriesResource(client)
-        self.entities = EntitiesResource(client)
-        self.artifacts = ArtifactsResource(client)
-        self.relations = RelationsResource(client)
-        self.events = EventsResource(client)
-        self.context = ContextResource(client)
-        self.lifecycle = LifecycleResource(client)
-        self.feedback = FeedbackResource(client)
-        self.grants = GrantsResource(client)
-        self.conflicts = ConflictsResource(client)
-        self._ingest = IngestResource(client)
+        self._client = EidolonDBClient(EidolonDBConfig(url=url, tenant=tenant, timeout=timeout))
+        self.memories = MemoriesResource(self._client)
+        self.entities = EntitiesResource(self._client)
+        self.artifacts = ArtifactsResource(self._client)
+        self.relations = RelationsResource(self._client)
+        self.events = EventsResource(self._client)
+        self.context = ContextResource(self._client)
+        self.lifecycle = LifecycleResource(self._client)
+        self.feedback = FeedbackResource(self._client)
+        self.grants = GrantsResource(self._client)
+        self.conflicts = ConflictsResource(self._client)
+        self._ingest = IngestResource(self._client)
 
     def remember(
         self,
@@ -92,6 +93,27 @@ class EidolonDB:
 
     def search(self, query: str, **kwargs: Any) -> List[MemorySearchResult]:
         return self.memories.search(query, **kwargs)
+
+    def validate(
+        self,
+        claim: str,
+        *,
+        agent_entity_id: Optional[str] = None,
+        k: int = 5,
+        threshold: float = 0.7,
+        tier: Optional[str] = None,
+    ) -> dict:
+        payload: dict[str, Any] = {
+            "claim": claim,
+            "k": k,
+            "threshold": threshold,
+        }
+        if agent_entity_id is not None:
+            payload["agentEntityId"] = agent_entity_id
+        if tier is not None:
+            payload["tier"] = tier
+
+        return self._client.request("POST", "/validate", body=payload)
 
     def detect_conflicts(
         self,

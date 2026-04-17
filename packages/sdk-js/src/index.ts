@@ -11,6 +11,7 @@ import type {
   MemoryTier,
   SearchMemoriesOptions,
   TemporalFilter,
+  ValidateResponse,
 } from './types.js';
 import { ArtifactsResource } from './resources/artifacts.js';
 import { ConflictsResource } from './resources/conflicts.js';
@@ -40,6 +41,7 @@ export { GrantsResource } from './resources/grants.js';
 export { ConflictsResource } from './resources/conflicts.js';
 
 export class EidolonDB {
+  private readonly client: EidolonDBClient;
   readonly memories: MemoriesResource;
   readonly entities: EntitiesResource;
   readonly artifacts: ArtifactsResource;
@@ -53,18 +55,18 @@ export class EidolonDB {
   private readonly _ingest: IngestResource;
 
   constructor(config: EidolonDBConfig) {
-    const client = new EidolonDBClient(config);
-    this.memories = new MemoriesResource(client);
-    this.entities = new EntitiesResource(client);
-    this.artifacts = new ArtifactsResource(client);
-    this.relations = new RelationsResource(client);
-    this.events = new EventsResource(client);
-    this.context = new ContextResource(client);
-    this.lifecycle = new LifecycleResource(client);
-    this.feedback = new FeedbackResource(client);
-    this.grants = new GrantsResource(client);
-    this.conflicts = new ConflictsResource(client);
-    this._ingest = new IngestResource(client);
+    this.client = new EidolonDBClient(config);
+    this.memories = new MemoriesResource(this.client);
+    this.entities = new EntitiesResource(this.client);
+    this.artifacts = new ArtifactsResource(this.client);
+    this.relations = new RelationsResource(this.client);
+    this.events = new EventsResource(this.client);
+    this.context = new ContextResource(this.client);
+    this.lifecycle = new LifecycleResource(this.client);
+    this.feedback = new FeedbackResource(this.client);
+    this.grants = new GrantsResource(this.client);
+    this.conflicts = new ConflictsResource(this.client);
+    this._ingest = new IngestResource(this.client);
   }
 
   /**
@@ -130,6 +132,19 @@ export class EidolonDB {
    */
   detectConflicts(options?: ConflictDetectInput): Promise<ConflictDetectResult> {
     return this.conflicts.detect(options);
+  }
+
+  /**
+   * Validate whether a claim is supported, contradicted, or unverified by stored memories.
+   */
+  validate(
+    claim: string,
+    options?: { agentEntityId?: string; k?: number; threshold?: number; tier?: string }
+  ): Promise<ValidateResponse> {
+    return this.client.request<ValidateResponse>('POST', '/validate', {
+      claim,
+      ...options,
+    });
   }
 
   /**
