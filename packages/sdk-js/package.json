@@ -1,6 +1,6 @@
 {
   "name": "@eidolondb/client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Official JavaScript/TypeScript client for EidolonDB",
   "repository": {
     "type": "git",
@@ -11,7 +11,13 @@
   "bugs": {
     "url": "https://github.com/millbj92/EidolonDB/issues"
   },
-  "keywords": ["memory", "ai", "agents", "vector", "eidolondb"],
+  "keywords": [
+    "memory",
+    "ai",
+    "agents",
+    "vector",
+    "eidolondb"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,7 +40,10 @@
     "jest": "^29.0.0",
     "ts-jest": "^29.4.0"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public"
   }
