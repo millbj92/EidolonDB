@@ -303,11 +303,11 @@ export default function DemoPage() {
         </section>
       ) : null}
 
-      <div className="demo-panels">
-        <section className="panel demo-panel">
+      <div className="demo-panels" style={{ alignItems: 'stretch' }}>
+        <section className="panel demo-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Memory Store</h2>
 
-          <div className="stack" style={{ marginBottom: '1rem' }}>
+          <div className="stack" style={{ flex: 1, overflowY: 'auto', maxHeight: '340px', marginBottom: '1rem', paddingRight: '2px' }}>
             {initLoading ? (
               <div className="empty" style={{ textAlign: 'center', padding: '1.5rem 0' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⏳</div>
@@ -367,7 +367,7 @@ export default function DemoPage() {
           </div>
         </section>
 
-        <section className="panel demo-panel">
+        <section className="panel demo-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Recall</h2>
           <div className="row" style={{ marginBottom: '0.8rem' }}>
             <input
@@ -408,7 +408,7 @@ export default function DemoPage() {
           </div>
         </section>
 
-        <section className="panel demo-panel">
+        <section className="panel demo-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Validate</h2>
           <div className="row" style={{ marginBottom: '0.8rem' }}>
             <input
@@ -502,11 +502,13 @@ export default function DemoPage() {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 1rem;
-          align-items: start;
+          align-items: stretch;
         }
 
         .demo-panel {
           min-height: 540px;
+          display: flex;
+          flex-direction: column;
         }
 
         .demo-memory-card {
