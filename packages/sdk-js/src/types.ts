@@ -5,6 +5,7 @@ export type RelationNodeType = 'entity' | 'artifact' | 'memory';
 export type GrantPermission = 'read' | 'read-write';
 export type ConflictStatus = 'none' | 'flagged' | 'resolved';
 export type ConflictResolutionStrategy = 'newer-wins' | 'higher-importance' | 'merge' | 'manual';
+export type ValidateVerdict = 'supported' | 'contradicted' | 'unverified';
 
 export interface Memory {
   id: string;
@@ -134,6 +135,23 @@ export interface RetrievalStatsResponse {
   avgRelevanceFeedback: number | null;
   avgRetrievalScore: number | null;
   lastRetrievedAt: string | null;
+}
+
+export interface ValidateEvidence {
+  memoryId: string;
+  content: string;
+  similarity: number;
+  tier: string;
+  createdAt: string;
+}
+
+export interface ValidateResponse {
+  verdict: ValidateVerdict;
+  confidence: number;
+  claim: string;
+  supporting: ValidateEvidence[];
+  contradicting: ValidateEvidence[];
+  reasoning: string;
 }
 
 export interface CandidateMemory {

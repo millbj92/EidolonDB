@@ -17,6 +17,15 @@ type Config = {
   tenant: string;
 };
 
+type ValidateResult = {
+  verdict?: 'supported' | 'contradicted' | 'unverified' | string;
+  confidence?: number;
+  claim?: string;
+  supporting?: unknown[];
+  contradicting?: unknown[];
+  reasoning?: string;
+};
+
 const config: Config = {
   url: process.env['EIDOLONDB_URL'] ?? 'http://localhost:3000',
   apiKey: process.env['EIDOLONDB_API_KEY'],
@@ -189,6 +198,49 @@ server.tool(
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to search memories.';
       return textResult(`Unable to recall memories: ${message}`);
+    }
+  }
+);
+
+server.tool(
+  'validate_claim',
+  'Check whether a claim is supported, contradicted, or unverified based on stored memories',
+  {
+    claim: z.string().min(1).describe('Claim to validate'),
+    agentEntityId: z.string().min(1).optional().describe('Optional agent entity ID scope'),
+    k: z.number().int().min(1).max(20).optional().describe('Number of memories to evaluate (default 5, max 20)'),
+    threshold: z.number().min(0).max(1).optional().describe('Similarity threshold for evidence matching'),
+    tier: z.string().min(1).optional().describe('Optional memory tier filter'),
+  },
+  async ({ claim, agentEntityId, k, threshold, tier }) => {
+    try {
+      const payload: Record<string, unknown> = { claim };
+      if (agentEntityId) payload.agentEntityId = agentEntityId;
+      if (k !== undefined) payload.k = k;
+      if (threshold !== undefined) payload.threshold = threshold;
+      if (tier) payload.tier = tier;
+
+      const data = await requestEidolonDB<ValidateResult>(
+        '/validate',
+        {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const verdict = typeof data?.verdict === 'string' ? data.verdict : 'unverified';
+      const confidence = typeof data?.confidence === 'number' ? data.confidence.toFixed(2) : 'N/A';
+      const reasoning = typeof data?.reasoning === 'string' ? data.reasoning : 'No reasoning provided.';
+      const supportingCount = Array.isArray(data?.supporting) ? data.supporting.length : 0;
+      const contradictingCount = Array.isArray(data?.contradicting) ? data.contradicting.length : 0;
+
+      return textResult(
+        `Verdict: ${verdict}\nConfidence: ${confidence}\nReasoning: ${reasoning}\nEvidence: supporting=${supportingCount}, contradicting=${contradictingCount}`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to validate claim.';
+      return textResult(`Unable to validate claim: ${message}`);
     }
   }
 );
