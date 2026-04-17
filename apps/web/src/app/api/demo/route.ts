@@ -323,7 +323,7 @@ export async function POST(request: Request): Promise<Response> {
   const opsLimit = getOpsLimit();
 
   try {
-    await cleanupExpiredMemories(tenantId);
+    try { await cleanupExpiredMemories(tenantId); } catch { /* non-fatal */ }
 
     if (action === 'init') {
       let memories = await listMemories(tenantId);

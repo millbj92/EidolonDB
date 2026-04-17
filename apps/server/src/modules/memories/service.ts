@@ -234,7 +234,7 @@ export async function listMemories(
     .select()
     .from(memories)
     .where(whereClause)
-    .orderBy(orderFn(sortColumn), desc(memories.createdAt))
+    .orderBy(...(sortColumn === memories.createdAt ? [orderFn(sortColumn)] : [orderFn(sortColumn), desc(memories.createdAt)]))
     .limit(limit)
     .offset(offset);
 
