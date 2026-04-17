@@ -8,7 +8,7 @@ const tiers = [
     sub: 'Self-hosted, forever.',
     highlight: false,
     ctaHref: '/sign-up',
-    ctaLabel: 'Get started free',
+    ctaLabel: 'Self-host free',
     ops: '10k ops/mo',
     overage: null,
     features: [
@@ -32,7 +32,7 @@ const tiers = [
       '200,000 memory ops/month',
       '10 API keys',
       'Temporal retrieval',
-      'Premise validation',
+      'Claim validation (POST /validate)',
       'Memory decay & lifecycle',
       'Higher rate limits',
       '$0.25 per 100k ops overage',
@@ -94,7 +94,8 @@ export default function PricingPage() {
             key={tier.name}
             className="card"
             style={{
-              display: 'grid',
+              display: 'flex',
+              flexDirection: 'column',
               gap: '0.9rem',
               ...(tier.highlight ? { border: '1px solid #6366f1', boxShadow: '0 0 0 1px #6366f1' } : {}),
             }}
@@ -110,11 +111,13 @@ export default function PricingPage() {
                 {tier.sub}
               </p>
             </div>
-            <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#c7d2e8', lineHeight: 1.7, fontSize: '0.9rem' }}>
-              {tier.features.map((feature) => (
-                <li key={`${tier.name}-${feature}`}>{feature}</li>
-              ))}
-            </ul>
+            <div style={{ flex: 1 }}>
+              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#c7d2e8', lineHeight: 1.7, fontSize: '0.9rem' }}>
+                {tier.features.map((feature) => (
+                  <li key={`${tier.name}-${feature}`}>{feature}</li>
+                ))}
+              </ul>
+            </div>
             <Link
               href={tier.ctaHref}
               className={`btn${tier.highlight ? ' btn-primary' : ''}`}
