@@ -402,7 +402,7 @@ export async function POST(request: Request): Promise<Response> {
         '/validate',
         {
           method: 'POST',
-          body: JSON.stringify({ claim, k: 5, threshold: 0.65 }),
+          body: JSON.stringify({ claim, k: 8, threshold: 0.4 }),
         },
         unwrapData
       );
