@@ -15,6 +15,7 @@ import { scheduleLifecycle } from './modules/lifecycle/scheduler.js';
 import { feedbackRoutes } from './modules/feedback/index.js';
 import { grantsRoutes } from './modules/grants/index.js';
 import { conflictsRoutes } from './modules/conflicts/index.js';
+import { validateRoutes } from './modules/validate/index.js';
 
 async function main() {
   const fastify = Fastify({
@@ -41,6 +42,7 @@ async function main() {
   await fastify.register(feedbackRoutes);
   await fastify.register(grantsRoutes);
   await fastify.register(conflictsRoutes);
+  await fastify.register(validateRoutes);
 
   // Global error handler
   fastify.setErrorHandler((error: Error, _request, reply) => {
