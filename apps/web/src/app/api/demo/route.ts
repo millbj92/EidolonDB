@@ -200,6 +200,7 @@ async function eidolonRequest<TPayload>(
       Authorization: `Bearer ${config.serviceKey}`,
       'Content-Type': 'application/json',
       'x-tenant-id': tenantId,
+      'x-tenant-slug': tenantId,
     },
     cache: 'no-store',
   });
