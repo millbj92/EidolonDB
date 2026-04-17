@@ -74,7 +74,7 @@ export default function MarketingPage() {
             <span className="v">ingest</span>
             <span className="p">(</span>
             <span className="s">
-              &quot;Today we decided on Fastify for the API. Port 4000. Jordan leads backend.&quot;
+              &quot;We use Fastify on port 4000. Jordan leads backend.&quot;
             </span>
             <span className="p">);</span>
             {'\n\n'}
@@ -89,7 +89,21 @@ export default function MarketingPage() {
             <span className="p">);</span>
             {'\n'}
             <span className="c">
-              // → [&quot;We&apos;re using Fastify on port 4000&quot;, &quot;Jordan leads backend development&quot;]
+              // → [&quot;We&apos;re using Fastify on port 4000&quot;, &quot;Jordan leads backend&quot;]
+            </span>
+            {'\n\n'}
+            <span className="c">// Validate a claim against memory</span>
+            {'\n'}
+            <span className="k">const</span> <span className="v">result</span> <span className="p">=</span>{' '}
+            <span className="k">await</span> <span className="v">db</span>
+            <span className="p">.</span>
+            <span className="v">validate</span>
+            <span className="p">(</span>
+            <span className="s">&quot;Jordan leads the backend team&quot;</span>
+            <span className="p">);</span>
+            {'\n'}
+            <span className="c">
+              // → {'{'} verdict: &quot;supported&quot;, confidence: 0.94, reasoning: &quot;...&quot; {'}'}
             </span>
           </code>
         </pre>
@@ -98,7 +112,7 @@ export default function MarketingPage() {
       <section className="section container" id="evals">
         <h2>Eval results</h2>
         <p className="muted" style={{ marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem' }}>
-          8 multi-session scenarios · 3 sessions each · held-out LLM judge scoring recall quality and hallucination rejection.
+          16 multi-session scenarios · 3 sessions each · held-out LLM judge scoring recall quality and hallucination rejection.
         </p>
         <div className="table-wrap">
           <table>
@@ -157,44 +171,38 @@ export default function MarketingPage() {
             <p>Vector + recency + importance scoring.</p>
           </article>
           <article className="card">
-            <h3>Deduplication</h3>
-            <p>First-pass Jaccard + vector similarity dedup.</p>
+            <h3>Claim Validation</h3>
+            <p>Check any statement against stored memories. Verdict: supported, contradicted, or unverified.</p>
           </article>
           <article className="card">
-            <h3>Full API + SDK</h3>
-            <p>REST API, TypeScript SDK, zero-dependency.</p>
+            <h3>Multi-Agent RBAC</h3>
+            <p>Share memories across agents with scoped read/write grants.</p>
+          </article>
+          <article className="card">
+            <h3>Conflict Resolution</h3>
+            <p>Automatically detect and surface contradictory memories.</p>
+          </article>
+          <article className="card">
+            <h3>MCP Support</h3>
+            <p>Native Model Context Protocol server. Works with Claude, Cursor, Windsurf.</p>
+          </article>
+          <article className="card">
+            <h3>Full API + SDKs</h3>
+            <p>REST API, TypeScript + Python SDKs, zero dependencies.</p>
           </article>
         </div>
       </section>
 
       <section className="section container" id="pricing">
-        <h2>Pricing</h2>
+        <h2>Simple, usage-based pricing</h2>
         <p className="muted" style={{ marginTop: 0, marginBottom: '1.5rem' }}>
-          Priced per memory operation. Every ingest, read, write, and query counts the same.
+          Start free. Pay as you grow. No per-seat nonsense.
         </p>
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-          <article className="card">
-            <h3 style={{ marginBottom: '0.25rem' }}>🔵 Developer</h3>
-            <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1.3rem', color: '#e2e8f0' }}>$19/mo</p>
-            <p style={{ margin: '0 0 0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>200k ops/mo · all features · $0.25/100k overage</p>
-            <a className="btn btn-primary" href="/sign-up?plan=developer" style={{ textAlign: 'center', display: 'block' }}>Start building →</a>
-          </article>
-          <article className="card">
-            <h3 style={{ marginBottom: '0.25rem' }}>🟣 Growth</h3>
-            <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1.3rem', color: '#e2e8f0' }}>$99/mo</p>
-            <p style={{ margin: '0 0 0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>1M ops/mo · priority support · $0.10/100k overage</p>
-            <a className="btn" href="/sign-up?plan=growth" style={{ textAlign: 'center', display: 'block' }}>Scale up →</a>
-          </article>
-          <article className="card">
-            <h3 style={{ marginBottom: '0.25rem' }}>🏢 Enterprise</h3>
-            <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1.3rem', color: '#e2e8f0' }}>Custom</p>
-            <p style={{ margin: '0 0 0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>Unlimited ops · SLA · dedicated support</p>
-            <a className="btn" href="mailto:hello@eidolondb.com" style={{ textAlign: 'center', display: 'block' }}>Contact us →</a>
-          </article>
+        <div className="hero-actions">
+          <Link className="btn btn-primary" href="/pricing">
+            See pricing →
+          </Link>
         </div>
-        <p className="muted" style={{ fontSize: '0.82rem', textAlign: 'center' }}>
-          Free tier available for self-hosted. <a href="/pricing">See full pricing →</a>
-        </p>
       </section>
 
       <section className="section container cta" id="start">
