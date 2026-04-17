@@ -1,5 +1,28 @@
 import { getTenantContextFromAuth } from '@/lib/db-utils';
 
+type Tier = 'short_term' | 'episodic' | 'semantic';
+type SortBy = 'createdAt' | 'importanceScore' | 'accessCount';
+type SortOrder = 'asc' | 'desc';
+
+function parseTiers(raw: string | null): Tier[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((tier) => tier.trim())
+    .filter((tier): tier is Tier => tier === 'short_term' || tier === 'episodic' || tier === 'semantic');
+}
+
+function parseSortBy(raw: string | null): SortBy {
+  if (raw === 'importanceScore' || raw === 'accessCount' || raw === 'createdAt') {
+    return raw;
+  }
+  return 'createdAt';
+}
+
+function parseSortOrder(raw: string | null): SortOrder {
+  return raw === 'asc' ? 'asc' : 'desc';
+}
+
 export async function GET(request: Request): Promise<Response> {
   const tenant = await getTenantContextFromAuth();
   if (!tenant) {
@@ -16,6 +39,9 @@ export async function GET(request: Request): Promise<Response> {
   const q = searchParams.get('q')?.trim() ?? '';
   const limitRaw = searchParams.get('limit') ?? '20';
   const k = Math.min(Math.max(Number.parseInt(limitRaw, 10) || 20, 1), 100);
+  const tiers = parseTiers(searchParams.get('tier'));
+  const sortBy = parseSortBy(searchParams.get('sortBy'));
+  const sortOrder = parseSortOrder(searchParams.get('sortOrder'));
 
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -27,8 +53,11 @@ export async function GET(request: Request): Promise<Response> {
     // No query — return recent memories via list endpoint
     const listUrl = new URL('/memories', gatewayUrl);
     listUrl.searchParams.set('limit', String(k));
-    listUrl.searchParams.set('sortBy', 'createdAt');
-    listUrl.searchParams.set('sortOrder', 'desc');
+    listUrl.searchParams.set('sortBy', sortBy);
+    listUrl.searchParams.set('sortOrder', sortOrder);
+    for (const tier of tiers) {
+      listUrl.searchParams.append('tiers[]', tier);
+    }
 
     const listResp = await fetch(listUrl.toString(), {
       method: 'GET',
@@ -57,7 +86,7 @@ export async function GET(request: Request): Promise<Response> {
       : [];
 
     const results = Array.isArray(memories)
-      ? memories.map((m) => ({ memory: m, score: 1 }))
+      ? memories.map((memory) => ({ memory, score: 1 }))
       : [];
 
     return Response.json({ results });
@@ -68,7 +97,13 @@ export async function GET(request: Request): Promise<Response> {
   const response = await fetch(searchUrl.toString(), {
     method: 'POST',
     headers,
-    body: JSON.stringify({ text: q, k }),
+    body: JSON.stringify({
+      text: q,
+      k,
+      ...(tiers.length > 0 ? { tiers } : {}),
+      sortBy,
+      sortOrder,
+    }),
     cache: 'no-store',
   });
 
