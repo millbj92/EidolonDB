@@ -213,7 +213,7 @@ export async function validateClaim(
         recency: 0,
         importance: 0,
       },
-      minScore: input.threshold,
+      minScore: Math.min(input.threshold ?? 0.7, 0.3), // cast wide net for LLM — threshold applied to confidence scoring only
       includeShared: false,
     },
     {
