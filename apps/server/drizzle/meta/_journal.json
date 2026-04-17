@@ -36,6 +36,13 @@
       "when": 1776286282080,
       "tag": "0004_shallow_edwin_jarvis",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776450064600,
+      "tag": "0006_conflict_columns_ensure",
+      "breakpoints": true
     }
   ]
 }
