@@ -105,6 +105,7 @@ export default function DemoPage() {
   const [opsLimit, setOpsLimit] = useState(DEFAULT_OPS_LIMIT);
 
   const [initLoading, setInitLoading] = useState(true);
+  const [initStatus, setInitStatus] = useState<string>('Connecting to EidolonDB...');
   const [ingesting, setIngesting] = useState(false);
   const [recalling, setRecalling] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -159,9 +160,27 @@ export default function DemoPage() {
   useEffect(() => {
     let cancelled = false;
 
+    const statusMessages = [
+      { ms: 0,    text: 'Connecting to EidolonDB...' },
+      { ms: 1200, text: 'Creating your isolated demo session...' },
+      { ms: 2800, text: 'Seeding memories for the Helios project...' },
+      { ms: 4500, text: 'Extracting structured memories with LLM...' },
+      { ms: 7000, text: 'Generating embeddings for each memory...' },
+      { ms: 10000, text: 'Storing memories across tiers...' },
+      { ms: 13000, text: 'Almost there — finalizing memory index...' },
+    ];
+
+    const statusTimers: number[] = [];
+
     async function runInit(): Promise<void> {
       setInitLoading(true);
       setError(null);
+
+      // Kick off timed status messages
+      for (const { ms, text } of statusMessages) {
+        const t = window.setTimeout(() => { if (!cancelled) setInitStatus(text); }, ms);
+        statusTimers.push(t);
+      }
 
       try {
         const existing = window.sessionStorage.getItem(STORAGE_KEY);
@@ -174,6 +193,9 @@ export default function DemoPage() {
         if (cancelled) return;
         setTenantId(currentTenantId);
 
+        // If returning visitor, fast-track the status
+        if (existing) setInitStatus('Loading your previous session...');
+
         const payload = await callDemo({ action: 'init', tenantId: currentTenantId });
         if (cancelled) return;
 
@@ -182,6 +204,7 @@ export default function DemoPage() {
         if (cancelled) return;
         setError(requestError instanceof Error ? requestError.message : 'Failed to initialize demo.');
       } finally {
+        statusTimers.forEach(t => window.clearTimeout(t));
         if (!cancelled) {
           setInitLoading(false);
         }
@@ -285,7 +308,16 @@ export default function DemoPage() {
           <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Memory Store</h2>
 
           <div className="stack" style={{ marginBottom: '1rem' }}>
-            {initLoading ? <div className="empty">Loading demo memories...</div> : null}
+            {initLoading ? (
+              <div className="empty" style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⏳</div>
+                <div style={{ marginBottom: '0.4rem', fontWeight: 500 }}>{initStatus}</div>
+                <div className="muted" style={{ fontSize: '0.78rem', lineHeight: 1.5 }}>
+                  First visit? We&apos;re seeding 5 memories using LLM extraction<br />
+                  + vector embeddings — takes ~15 seconds.
+                </div>
+              </div>
+            ) : null}
             {!initLoading && memories.length === 0 ? <div className="empty">No memories yet.</div> : null}
             {!initLoading
               ? memories.map((memory) => (
