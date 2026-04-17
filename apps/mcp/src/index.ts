@@ -212,13 +212,18 @@ server.tool(
     threshold: z.number().min(0).max(1).optional().describe('Similarity threshold for evidence matching'),
     tier: z.string().min(1).optional().describe('Optional memory tier filter'),
   },
-  async ({ claim, agentEntityId, k, threshold, tier }) => {
+  async (args) => {
+    const claim = args['claim'] as string;
+    const agentEntityId = args['agentEntityId'] as string | undefined;
+    const k = args['k'] as number | undefined;
+    const threshold = args['threshold'] as number | undefined;
+    const tier = args['tier'] as string | undefined;
     try {
       const payload: Record<string, unknown> = { claim };
-      if (agentEntityId) payload.agentEntityId = agentEntityId;
-      if (k !== undefined) payload.k = k;
-      if (threshold !== undefined) payload.threshold = threshold;
-      if (tier) payload.tier = tier;
+      if (agentEntityId) payload['agentEntityId'] = agentEntityId;
+      if (k !== undefined) payload['k'] = k;
+      if (threshold !== undefined) payload['threshold'] = threshold;
+      if (tier) payload['tier'] = tier;
 
       const data = await requestEidolonDB<ValidateResult>(
         '/validate',
