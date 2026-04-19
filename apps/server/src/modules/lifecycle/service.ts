@@ -203,8 +203,7 @@ export async function runLifecycle(
         const alreadyDistilled =
           memory.metadata &&
           typeof memory.metadata === 'object' &&
-          'distilledAt' in memory.metadata &&
-          memory.metadata.distilledAt != null;
+          memory.metadata['distilledAt'] != null;
 
         if (alreadyDistilled) {
           details.push({
