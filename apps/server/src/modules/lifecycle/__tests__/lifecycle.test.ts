@@ -312,6 +312,31 @@ describe('runLifecycle', () => {
     expect(result.details[1]?.action).toBe('unchanged');
   });
 
+  it('skips distillation for episodic memory that has already been distilled', async () => {
+    mockMemories([
+      makeMemory({
+        tier: 'episodic',
+        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+        accessCount: 3,
+        importanceScore: 0.9,
+        metadata: {
+          distilledAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          distilledMemoryId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        },
+      }),
+    ]);
+    mockDistillationFetch(0.92);
+
+    const result = await runLifecycle('tenant-1');
+
+    expect(result.summary.unchanged).toBe(1);
+    expect(result.summary.distilled).toBe(0);
+    expect(result.details[0]?.action).toBe('unchanged');
+    expect(result.details[0]?.reason).toContain('already distilled');
+    expect(mockCreateMemory).not.toHaveBeenCalled();
+    expect(mockCreateRelation).not.toHaveBeenCalled();
+  });
+
   it('always inserts lifecycle_runs record', async () => {
     mockMemories([
       makeMemory({

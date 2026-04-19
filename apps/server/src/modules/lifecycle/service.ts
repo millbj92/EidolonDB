@@ -198,6 +198,24 @@ export async function runLifecycle(
           continue;
         }
 
+        // Skip memories that have already been distilled — they'll be archived naturally
+        // once they age past archiveAfterMs. Re-distilling produces redundant semantic duplicates.
+        const alreadyDistilled =
+          memory.metadata &&
+          typeof memory.metadata === 'object' &&
+          memory.metadata['distilledAt'] != null;
+
+        if (alreadyDistilled) {
+          details.push({
+            memoryId: memory.id,
+            action: 'unchanged',
+            fromTier: 'episodic',
+            reason: 'episodic memory already distilled; skipping to avoid duplicate semantic memories',
+          });
+          summary.unchanged += 1;
+          continue;
+        }
+
         if (
           ageMs > rules.episodic.distillAfterMs &&
           importanceScore >= rules.episodic.distillIfImportance &&
