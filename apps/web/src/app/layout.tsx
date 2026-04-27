@@ -14,9 +14,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'EidolonDB — Self-managing memory for AI agents',
+  title: 'Eidolon — The control plane for reliable AI agents',
   description:
-    'EidolonDB is self-managing memory for AI agents: automatic extraction, tier evolution, and hybrid recall.',
+    'Eidolon is the control plane for reliable AI agents, with memory, permissions, and governance for production workflows.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

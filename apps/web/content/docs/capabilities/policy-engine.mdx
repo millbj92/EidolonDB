@@ -1,0 +1,55 @@
+---
+title: Policy Engine
+description: Decisions, rule effects, and risk.
+---
+
+# Policy Engine
+
+## Rule effects
+
+- `allow`: explicitly allow when conditions match.
+- `deny`: block execution.
+- `require_approval`: pause and request approval.
+
+## Common conditions
+
+- actor (`allowedActors`, actor policies)
+- resource (`resources[].inputPath` + allowlists)
+- environment (`dev`, `staging`, `prod`)
+- denied phrases
+- rate limits
+
+## Example
+
+```yaml
+rules:
+  - effect: deny
+    reason: Production deploys require release actor.
+    when:
+      environment: prod
+      actor: agent:dev
+
+  - effect: require_approval
+    reason: High-risk capability in production.
+    when:
+      environment: prod
+```
+
+## Risk scoring
+
+Each decision includes risk output:
+
+```json
+{
+  "riskScore": {
+    "score": 62,
+    "level": "medium",
+    "reasons": [
+      { "detail": "Environment is production", "contribution": 20 },
+      { "detail": "Capability risk is medium", "contribution": 15 }
+    ]
+  }
+}
+```
+
+Risk scoring helps route actions to approval flows before they execute.

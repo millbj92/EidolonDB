@@ -100,8 +100,50 @@ main,
   font-size: 0.95rem;
 }
 
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-dropdown-trigger {
+  color: var(--muted);
+  font-size: 0.95rem;
+  cursor: default;
+}
+
+.nav-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  min-width: 180px;
+  z-index: 100;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-dropdown-item {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.nav-dropdown-item:hover {
+  background: var(--border);
+}
+
 .nav a:hover,
-.nav a[aria-current='page'] {
+.nav a[aria-current='page'],
+.nav-dropdown:hover .nav-dropdown-trigger {
   color: var(--text);
 }
 

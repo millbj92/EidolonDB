@@ -1,0 +1,104 @@
+---
+title: Quickstart
+description: Control what your AI agents can do in 5 minutes.
+---
+
+# Quickstart
+
+## Prerequisites
+- Node.js 20+
+- A running AI agent (any framework)
+
+## 1. Install
+
+```bash
+npm install -g @eidolon/capabilities-cli
+# or run the server directly:
+git clone https://github.com/millbj92/EidolonCapabilities
+cd EidolonCapabilities && pnpm install && pnpm dev
+```
+
+## 2. Create your first capability
+
+Create `capabilities/github.issue.create.yaml`:
+
+```yaml
+apiVersion: eidolon.dev/v1
+kind: Capability
+
+metadata:
+  name: github.issue.create
+  version: 0.1.0
+
+spec:
+  description: "Create a GitHub issue"
+
+  inputSchema:
+    type: object
+    required: [repo, title]
+    properties:
+      repo:
+        type: string
+        description: "owner/repo"
+      title:
+        type: string
+
+  executor:
+    type: http
+    http:
+      method: POST
+      url: "https://api.github.com/repos/{{input.repo}}/issues"
+      headers:
+        Authorization: "Bearer {{secret.GITHUB_TOKEN}}"
+        Accept: "application/vnd.github+json"
+      body:
+        title: "{{input.title}}"
+
+  policy:
+    allowedActors:
+      - "agent:dev"
+    rules:
+      - effect: require_approval
+        when:
+          environment: prod
+```
+
+## 3. Set up secrets
+
+```bash
+export EIDOLON_SECRET_KEY=your-32-char-key
+eidolon secrets set GITHUB_TOKEN ghp_yourtoken
+```
+
+## 4. Plan an action
+
+```bash
+eidolon capabilities plan github.issue.create \
+  --input '{"repo": "acme/app", "title": "Fix login bug"}' \
+  --actor agent:dev
+```
+
+Output:
+```json
+{
+  "status": "ok",
+  "decision": "allowed",
+  "riskScore": { "score": 25, "level": "low" },
+  "policyChecks": [...]
+}
+```
+
+## 5. Apply it
+
+```bash
+eidolon capabilities apply github.issue.create \
+  --input '{"repo": "acme/app", "title": "Fix login bug"}' \
+  --actor agent:dev
+```
+
+That's it. Your agent now has audited, policy-controlled access to GitHub.
+
+## Next steps
+- [Understand capabilities ->](/docs/capabilities/concepts)
+- [Add memory-aware policy ->](/docs/capabilities/memory-aware-policy)
+- [Set up approvals ->](/docs/capabilities/approvals)

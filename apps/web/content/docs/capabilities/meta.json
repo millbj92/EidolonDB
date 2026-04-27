@@ -1,0 +1,4 @@
+{
+  "title": "Eidolon Capabilities",
+  "pages": ["quickstart", "concepts", "capability-yaml", "policy-engine", "memory-aware-policy", "secrets", "approvals", "cli-reference"]
+}

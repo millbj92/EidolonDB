@@ -1,0 +1,177 @@
+---
+title: Memory-Aware Policy
+description: Use EidolonDB evidence inside Capabilities policy decisions.
+---
+
+# Memory-Aware Policy
+
+Memory-aware policy is the flagship capability in Eidolon Capabilities.
+
+Instead of only checking static rules (actor, environment, allowlists), policy can also check evidence from EidolonDB before an action runs. That means agents are blocked when proposed actions contradict what your system already knows.
+
+## Why this matters
+
+Without memory-aware policy, agent safety is mostly static:
+
+- policies cannot see current project state
+- actions can violate known operational constraints
+- you discover mistakes after execution
+
+With memory-aware policy:
+
+- policy checks context from memory during `plan` and `apply`
+- high-risk actions can require stronger supporting evidence
+- blocked decisions include explainable memory-based reasons
+
+## Rule conditions
+
+Memory-aware checks live under `policy.rules[].when`.
+
+### `memoryConflict`
+
+Use this when the action should be denied or escalated if memory contains contradictory evidence.
+
+```yaml
+policy:
+  rules:
+    - effect: deny
+      reason: Deploy freeze is active.
+      when:
+        memoryConflict:
+          query: "deploy freeze active {{environment}}"
+          minScore: 0.78
+          maxResults: 3
+```
+
+### `memoryMatch`
+
+Use this when sensitive actions require positive supporting memory evidence.
+
+```yaml
+policy:
+  rules:
+    - effect: require_approval
+      reason: Missing release-manager approval evidence.
+      when:
+        memoryMatch:
+          query: "release manager approved auth deploy"
+          keywords: ["approved", "release manager", "auth"]
+          minScore: 0.82
+          maxResults: 5
+```
+
+### `validateClaim`
+
+Use this when an input claim must be validated against memory before execution.
+
+```yaml
+policy:
+  rules:
+    - effect: deny
+      reason: Claim not supported by project memory.
+      when:
+        validateClaim:
+          claimPath: input.changeClaim
+          minConfidence: 0.8
+          allowVerdicts: [supported]
+```
+
+Example input:
+
+```json
+{
+  "repo": "acme/auth-service",
+  "environment": "prod",
+  "changeClaim": "Release manager approved production deploy"
+}
+```
+
+## Deploy freeze walkthrough
+
+Assume EidolonDB already contains:
+
+- "Deploy freeze active until Monday"
+- "Production deploys require release manager approval"
+
+An agent attempts a production deploy on Friday.
+
+1. `plan` resolves capability + actor + environment.
+2. `memoryConflict` runs query and finds freeze evidence.
+3. `memoryMatch` checks for approval evidence.
+4. Policy returns blocked decision before secrets are exposed.
+
+Blocked output example:
+
+```text
+Blocked pending approval.
+
+Reason:
+- Action references production environment.
+- Project memory: deploy freeze active until Monday (confidence: 0.94).
+- Policy: no-production-without-approval fired.
+- GitHub token was not exposed.
+
+To approve: eidolon approvals approve appr_xyz
+```
+
+## Connect EidolonDB
+
+Set the EidolonDB endpoint so Capabilities can evaluate memory rules:
+
+```bash
+export EIDOLON_DB_URL=http://localhost:3000
+```
+
+Common production setup:
+
+```bash
+export EIDOLON_DB_URL=https://memory.internal.example
+export EIDOLON_DB_API_KEY=...
+```
+
+When configured, every memory-aware check queries this backend during policy evaluation.
+
+## `failOpen` behavior (when memory rules are skipped)
+
+Memory checks can be configured to fail open if EidolonDB is temporarily unavailable.
+
+```yaml
+policy:
+  memory:
+    failOpen: true
+  rules:
+    - effect: require_approval
+      when:
+        memoryMatch:
+          query: "security signoff for prod deploy"
+          minScore: 0.8
+```
+
+When `failOpen: true` and memory cannot be reached:
+
+- memory-specific checks are marked as skipped
+- static policy rules still run
+- the decision includes a skip reason in audit output
+
+Recommended approach:
+
+- `failOpen: false` for strict production safety boundaries
+- `failOpen: true` only where availability is more important than hard memory enforcement
+
+## Audit trail details
+
+Each memory-aware decision should record:
+
+- query string and interpolation inputs
+- matched memory ids and scores
+- applied thresholds
+- final rule result (`pass`, `fail`, or `skipped`)
+- rendered human-readable reason
+
+This gives operators a complete explanation of why an action was allowed, blocked, or escalated.
+
+## Next steps
+
+- [Policy Engine](/docs/capabilities/policy-engine)
+- [Approvals](/docs/capabilities/approvals)
+- [Capability YAML](/docs/capabilities/capability-yaml)

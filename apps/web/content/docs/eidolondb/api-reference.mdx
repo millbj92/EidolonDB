@@ -1,0 +1,50 @@
+---
+title: API Reference
+description: Core EidolonDB endpoints.
+---
+
+# API Reference
+
+## `POST /ingest`
+
+Store raw text or conversation and let EidolonDB extract memory.
+
+```bash
+curl -X POST http://localhost:3000/ingest \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: demo" \
+  -d '{"text":"Jordan owns auth service."}'
+```
+
+## `POST /memories/query`
+
+Retrieve relevant memories for a query.
+
+```bash
+curl -X POST http://localhost:3000/memories/query \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: demo" \
+  -d '{"query":"Who owns auth service?","limit":3}'
+```
+
+## `POST /context/build`
+
+Build a context payload for an agent turn.
+
+```bash
+curl -X POST http://localhost:3000/context/build \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: demo" \
+  -d '{"currentInput":"Plan deployment","maxTokens":2000}'
+```
+
+## `POST /validate`
+
+Validate a claim against known memories.
+
+```bash
+curl -X POST http://localhost:3000/validate \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: demo" \
+  -d '{"claim":"Jordan approved production deploy"}'
+```

@@ -1,0 +1,17 @@
+// @ts-nocheck -- skip type checking
+import * as d_docs_11 from "../content/docs/getting-started/introduction.mdx?collection=docs"
+import * as d_docs_10 from "../content/docs/capabilities/secrets.mdx?collection=docs"
+import * as d_docs_9 from "../content/docs/capabilities/quickstart.mdx?collection=docs"
+import * as d_docs_8 from "../content/docs/capabilities/policy-engine.mdx?collection=docs"
+import * as d_docs_7 from "../content/docs/capabilities/memory-aware-policy.mdx?collection=docs"
+import * as d_docs_6 from "../content/docs/capabilities/concepts.mdx?collection=docs"
+import * as d_docs_5 from "../content/docs/capabilities/cli-reference.mdx?collection=docs"
+import * as d_docs_4 from "../content/docs/capabilities/capability-yaml.mdx?collection=docs"
+import * as d_docs_3 from "../content/docs/capabilities/approvals.mdx?collection=docs"
+import * as d_docs_2 from "../content/docs/eidolondb/quickstart.mdx?collection=docs"
+import * as d_docs_1 from "../content/docs/eidolondb/concepts.mdx?collection=docs"
+import * as d_docs_0 from "../content/docs/eidolondb/api-reference.mdx?collection=docs"
+import { _runtime } from "fumadocs-mdx/runtime/next"
+import * as _source from "../source.config"
+export const docs = _runtime.doc<typeof _source.docs>([{ info: {"path":"eidolondb/api-reference.mdx","fullPath":"content/docs/eidolondb/api-reference.mdx"}, data: d_docs_0 }, { info: {"path":"eidolondb/concepts.mdx","fullPath":"content/docs/eidolondb/concepts.mdx"}, data: d_docs_1 }, { info: {"path":"eidolondb/quickstart.mdx","fullPath":"content/docs/eidolondb/quickstart.mdx"}, data: d_docs_2 }, { info: {"path":"capabilities/approvals.mdx","fullPath":"content/docs/capabilities/approvals.mdx"}, data: d_docs_3 }, { info: {"path":"capabilities/capability-yaml.mdx","fullPath":"content/docs/capabilities/capability-yaml.mdx"}, data: d_docs_4 }, { info: {"path":"capabilities/cli-reference.mdx","fullPath":"content/docs/capabilities/cli-reference.mdx"}, data: d_docs_5 }, { info: {"path":"capabilities/concepts.mdx","fullPath":"content/docs/capabilities/concepts.mdx"}, data: d_docs_6 }, { info: {"path":"capabilities/memory-aware-policy.mdx","fullPath":"content/docs/capabilities/memory-aware-policy.mdx"}, data: d_docs_7 }, { info: {"path":"capabilities/policy-engine.mdx","fullPath":"content/docs/capabilities/policy-engine.mdx"}, data: d_docs_8 }, { info: {"path":"capabilities/quickstart.mdx","fullPath":"content/docs/capabilities/quickstart.mdx"}, data: d_docs_9 }, { info: {"path":"capabilities/secrets.mdx","fullPath":"content/docs/capabilities/secrets.mdx"}, data: d_docs_10 }, { info: {"path":"getting-started/introduction.mdx","fullPath":"content/docs/getting-started/introduction.mdx"}, data: d_docs_11 }]);
+export const meta = _runtime.meta<typeof _source.meta>([{"info":{"path":"meta.json","fullPath":"content/docs/meta.json"},"data":{"title":"Eidolon Docs","pages":["getting-started","eidolondb","capabilities"]}}, {"info":{"path":"eidolondb/meta.json","fullPath":"content/docs/eidolondb/meta.json"},"data":{"title":"EidolonDB","pages":["quickstart","concepts","api-reference"]}}, {"info":{"path":"capabilities/meta.json","fullPath":"content/docs/capabilities/meta.json"},"data":{"title":"Eidolon Capabilities","pages":["quickstart","concepts","capability-yaml","policy-engine","memory-aware-policy","secrets","approvals","cli-reference"]}}, {"info":{"path":"getting-started/meta.json","fullPath":"content/docs/getting-started/meta.json"},"data":{"title":"Getting Started","pages":["introduction"]}}]);
