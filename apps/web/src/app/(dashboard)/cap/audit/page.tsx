@@ -103,7 +103,7 @@ export default async function CapabilitiesAuditPage({
               {payload.total.toLocaleString()} total events.
             </p>
           </div>
-          <Link href="/capabilities" className="btn">
+          <Link href="/cap" className="btn">
             Back to overview
           </Link>
         </div>
@@ -157,7 +157,7 @@ export default async function CapabilitiesAuditPage({
 
         <div className="row" style={{ justifyContent: 'space-between', marginTop: '1rem' }}>
           <Link
-            href={`/capabilities/audit?offset=${prevOffset}`}
+            href={`/cap/audit?offset=${prevOffset}`}
             className="btn"
             aria-disabled={!hasPrev}
             style={!hasPrev ? { opacity: 0.5, pointerEvents: 'none' } : {}}
@@ -165,7 +165,7 @@ export default async function CapabilitiesAuditPage({
             Previous
           </Link>
           <Link
-            href={`/capabilities/audit?offset=${nextOffset}`}
+            href={`/cap/audit?offset=${nextOffset}`}
             className="btn"
             aria-disabled={!hasNext}
             style={!hasNext ? { opacity: 0.5, pointerEvents: 'none' } : {}}
