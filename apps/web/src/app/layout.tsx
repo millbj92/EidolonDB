@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
 import { RootProvider } from 'fumadocs-ui/provider';
 import { JetBrains_Mono, Manrope } from 'next/font/google';
+import 'fumadocs-ui/style.css';
 import './globals.css';
 
 const manrope = Manrope({

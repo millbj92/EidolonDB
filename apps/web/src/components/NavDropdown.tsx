@@ -1,36 +1,31 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useRef } from 'react';
+import { useState, useCallback } from 'react';
 
 export function NavDropdown() {
   const [open, setOpen] = useState(false);
-  const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const show = () => {
-    if (timeout.current) clearTimeout(timeout.current);
-    setOpen(true);
-  };
-
-  const hide = () => {
-    timeout.current = setTimeout(() => setOpen(false), 120);
-  };
+  const handleMouseEnter = useCallback(() => setOpen(true), []);
+  const handleMouseLeave = useCallback(() => setOpen(false), []);
 
   return (
-    <div className="nav-dropdown" onMouseEnter={show} onMouseLeave={hide}>
-      <span className="nav-dropdown-trigger">Products ▾</span>
-      {open && (
-        <div className="nav-dropdown-menu">
-          <div className="nav-dropdown-menu-inner">
-            <Link href="/eidolondb" className="nav-dropdown-item" onClick={() => setOpen(false)}>
-              EidolonDB
-            </Link>
-            <Link href="/capabilities" className="nav-dropdown-item" onClick={() => setOpen(false)}>
-              Capabilities
-            </Link>
-          </div>
-        </div>
-      )}
+    <div
+      className="nav-dropdown"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <span className="nav-dropdown-trigger" aria-haspopup="true" aria-expanded={open}>
+        Products ▾
+      </span>
+      <div className="nav-dropdown-menu" aria-hidden={!open} style={{ pointerEvents: open ? 'auto' : 'none', opacity: open ? 1 : 0, visibility: open ? 'visible' : 'hidden' }}>
+        <Link href="/eidolondb" className="nav-dropdown-item" onClick={() => setOpen(false)}>
+          EidolonDB
+        </Link>
+        <Link href="/capabilities" className="nav-dropdown-item" onClick={() => setOpen(false)}>
+          Capabilities
+        </Link>
+      </div>
     </div>
   );
 }
