@@ -11,7 +11,10 @@ export default function MarketingPage() {
           <Link className="btn btn-primary" href="/sign-up">
             Get Started →
           </Link>
-          <a className="btn" href="/docs">
+          <a className="btn" href="/eidolondb/demo">
+            Live Demo →
+          </a>
+          <a className="btn" href="/docs/eidolondb/quickstart">
             View Docs →
           </a>
           <a className="btn" href="https://github.com/millbj92/eidolondb" target="_blank" rel="noreferrer">

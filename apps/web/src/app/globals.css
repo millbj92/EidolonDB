@@ -115,19 +115,24 @@ main,
   position: absolute;
   top: 100%;
   left: 0;
+  padding-top: 0.5rem;  /* bridge gap so mouse doesn't leave the element */
+  z-index: 100;
+  min-width: 180px;
+}
+
+.nav-dropdown-menu-inner {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.5rem;
-  min-width: 180px;
-  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .nav-dropdown:hover .nav-dropdown-menu,
 .nav-dropdown:focus-within .nav-dropdown-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  display: block;
 }
 
 .nav-dropdown-item {

@@ -13,17 +13,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <div className="nav-dropdown">
               <span className="nav-dropdown-trigger">Products ▾</span>
               <div className="nav-dropdown-menu">
-                <Link href="/eidolondb" className="nav-dropdown-item">
-                  EidolonDB
-                </Link>
-                <Link href="/capabilities" className="nav-dropdown-item">
-                  Capabilities
-                </Link>
+                <div className="nav-dropdown-menu-inner">
+                  <Link href="/eidolondb" className="nav-dropdown-item">EidolonDB</Link>
+                  <Link href="/capabilities" className="nav-dropdown-item">Capabilities</Link>
+                </div>
               </div>
             </div>
             <Link href="/pricing">Pricing</Link>
-            <Link href="/docs">Docs</Link>
-            <Link href="/demo">Demo</Link>
+            <Link href="/docs/getting-started/introduction">Docs</Link>
             <Link href="/contact">Contact</Link>
             <NavAuth />
           </nav>
@@ -36,7 +33,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="footer-links">
             <a href="/eidolondb">EidolonDB</a>
             <a href="/capabilities">Capabilities</a>
-            <a href="/docs">Docs</a>
+            <a href="/docs/getting-started/introduction">Docs</a>
             <a href="/pricing">Pricing</a>
             <a href="/contact">Contact</a>
             <a href="https://github.com/millbj92/EidolonCapabilities" target="_blank" rel="noreferrer">
