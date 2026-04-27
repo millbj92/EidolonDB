@@ -1,0 +1,32 @@
+---
+title: Concepts
+description: Understand tiers, lifecycle, and retrieval.
+---
+
+# Concepts
+
+## Three memory tiers
+
+- `short_term`: fresh session facts, highest recency weight.
+- `episodic`: consolidated session-level events and decisions.
+- `semantic`: stable long-lived knowledge.
+
+## Lifecycle promotion
+
+EidolonDB can promote memory over time:
+
+- short_term -> episodic when access/importance signals increase.
+- episodic -> semantic via distillation.
+- old low-signal memories can decay or be archived.
+
+This keeps recall useful without manual pruning.
+
+## Hybrid retrieval
+
+Queries combine:
+
+- semantic similarity (vector score)
+- recency
+- importance
+
+The result is better context quality than plain vector search alone.

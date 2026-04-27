@@ -1,0 +1,47 @@
+---
+title: Quickstart
+description: Ingest and query memory in minutes.
+---
+
+# Quickstart
+
+## Install
+
+```bash
+npm install @eidolondb/client
+```
+
+Or run the full server with Docker:
+
+```bash
+docker run --name eidolondb -p 3000:3000 ghcr.io/millbj92/eidolondb:latest
+```
+
+## 1. Ingest your first memory
+
+```bash
+curl -X POST http://localhost:3000/ingest \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: demo" \
+  -d '{
+    "text": "Deploy freeze is active until Monday.",
+    "sessionId": "session-1"
+  }'
+```
+
+## 2. Query memory
+
+```bash
+curl -X POST http://localhost:3000/memories/query \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: demo" \
+  -d '{
+    "query": "Is deploy freeze active?",
+    "limit": 5
+  }'
+```
+
+## 3. Next
+
+- Learn the model in [Concepts ->](/docs/eidolondb/concepts)
+- Explore endpoints in [API reference ->](/docs/eidolondb/api-reference)

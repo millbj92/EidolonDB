@@ -74,6 +74,7 @@ main,
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
+  z-index: 100;
   background: rgba(10, 10, 15, 0.7);
 }
 
@@ -91,6 +92,7 @@ main,
 
 .nav {
   display: flex;
+  align-items: stretch;
   gap: 1rem;
   flex-wrap: wrap;
 }
@@ -98,6 +100,54 @@ main,
 .nav a {
   color: var(--muted);
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+}
+
+.nav-dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-dropdown-trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.nav-dropdown-trigger:hover {
+  color: var(--text);
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  min-width: 180px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-dropdown-item {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.nav-dropdown-item:hover {
+  background: var(--border);
 }
 
 .nav a:hover,

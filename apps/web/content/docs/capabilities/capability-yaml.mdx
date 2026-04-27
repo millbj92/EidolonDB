@@ -1,0 +1,83 @@
+---
+title: Capability YAML
+description: Reference for capability definitions.
+---
+
+# Capability YAML
+
+```yaml
+apiVersion: eidolon.dev/v1
+kind: Capability
+
+metadata:
+  name: github.issue.create
+  version: 0.2.0
+  description: "Create GitHub issues safely"
+
+spec:
+  risk: medium
+
+  inputSchema:
+    type: object
+    required: [repo, title]
+    properties:
+      repo:
+        type: string
+      title:
+        type: string
+      body:
+        type: string
+
+  secrets:
+    - name: GITHUB_TOKEN
+      provider: env
+      key: GITHUB_TOKEN
+
+  network:
+    allowedHosts:
+      - api.github.com
+
+  executor:
+    type: http
+    http:
+      method: POST
+      url: "https://api.github.com/repos/{{input.repo}}/issues"
+      headers:
+        Authorization: "Bearer {{secret.GITHUB_TOKEN}}"
+        Accept: "application/vnd.github+json"
+      body:
+        title: "{{input.title}}"
+        body: "{{input.body}}"
+
+  policy:
+    allowedActors:
+      - agent:dev
+    resources:
+      - name: github_repository
+        inputPath: repo
+        allowed:
+          - acme/app
+    rules:
+      - effect: require_approval
+        reason: Production changes require human review.
+        when:
+          environment: prod
+      - effect: deny
+        reason: Block sensitive phrase exfiltration.
+        when:
+          deniedPhrases:
+            - "private key"
+
+  output:
+    expose:
+      - response.body.id
+      - response.body.html_url
+      - response.body.title
+```
+
+## Notes
+
+- `metadata.name` should be globally stable.
+- `inputSchema` is strict JSON schema.
+- `output.expose` limits what the caller can see.
+- `{{config.*}}` variables resolve at load time, not runtime.

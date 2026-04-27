@@ -1,0 +1,63 @@
+---
+title: CLI Reference
+description: Core `eidolon` CLI commands and examples.
+---
+
+# CLI Reference
+
+## Global flags
+
+- `--url <url>`: server base URL
+- `--api-key <key>`: API key for `/v1`
+- `--capabilities-dir <path>`
+- `--instances-dir <path>`
+- `--registry-url <url>`
+
+## Capabilities
+
+```bash
+eidolon capabilities list
+eidolon capabilities instances
+eidolon capabilities validate
+eidolon capabilities plan github.issue.create --input '{"repo":"acme/app","title":"Bug"}'
+eidolon capabilities apply github.issue.create --file ./input.json
+eidolon capabilities init github.issue.create
+eidolon capabilities install @eidolon/github
+eidolon capabilities uninstall @eidolon/github
+```
+
+## Policies
+
+```bash
+eidolon policies list
+eidolon policies get production-safety
+eidolon policies simulate github.issue.create --actor agent:dev --input '{"repo":"acme/app"}' --environment prod
+```
+
+## Approvals
+
+```bash
+eidolon approvals list --status pending
+eidolon approvals get appr_123
+eidolon approvals approve appr_123 --reason "Approved after release check"
+eidolon approvals reject appr_123 --reason "Missing ticket"
+eidolon approvals watch
+```
+
+## Audit
+
+```bash
+eidolon audit tail --limit 50
+```
+
+## Registry + DB
+
+```bash
+eidolon registry serve --port 4400
+eidolon registry publish ./packages/@eidolon/github
+eidolon registry sign ./packages/@eidolon/github --key ./registry.key
+
+eidolon db migrate
+eidolon db generate
+eidolon db studio
+```

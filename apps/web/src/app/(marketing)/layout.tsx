@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { NavAuth } from '@/components/NavAuth';
+import { NavDropdown } from '@/components/NavDropdown';
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,15 +8,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <header className="topbar">
         <div className="container topbar-inner">
           <Link href="/" className="brand">
-            EidolonDB
+            Eidolon
           </Link>
           <nav className="nav">
-            <Link href="/#features">Features</Link>
-            <Link href="/#how">How it works</Link>
-            <Link href="/#evals">Evals</Link>
+            <NavDropdown />
             <Link href="/pricing">Pricing</Link>
-            <Link href="/docs">Docs</Link>
-            <Link href="/demo">Demo</Link>
+            <Link href="/docs/getting-started/introduction">Docs</Link>
             <Link href="/contact">Contact</Link>
             <NavAuth />
           </nav>
@@ -24,14 +22,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <main>{children}</main>
       <footer className="footer">
         <div className="container footer-inner">
-          <p>EidolonDB - MIT License</p>
+          <p>Eidolon · The control plane for reliable AI agents.</p>
           <div className="footer-links">
-            <a href="/docs">Docs</a>
+            <a href="/eidolondb">EidolonDB</a>
+            <a href="/capabilities">Capabilities</a>
+            <a href="/docs/getting-started/introduction">Docs</a>
+            <a href="/pricing">Pricing</a>
             <a href="/contact">Contact</a>
-            <a href="https://github.com/millbj92/eidolondb" target="_blank" rel="noreferrer">
+            <a href="https://github.com/millbj92/EidolonCapabilities" target="_blank" rel="noreferrer">
               GitHub
             </a>
-            <a href="/self-hosting">Self-hosting</a>
           </div>
         </div>
       </footer>

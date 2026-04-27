@@ -82,6 +82,11 @@ export default function PricingPage() {
   return (
     <section className="section container">
       <h1 style={{ fontSize: '2.6rem', marginBottom: '0.7rem' }}>Pricing</h1>
+      <p style={{ marginTop: 0, marginBottom: '0.65rem' }}>
+        <Link href="/capabilities#pricing" style={{ color: 'var(--primary)', fontWeight: 700 }}>
+          Looking for Capabilities pricing? View tiers here.
+        </Link>
+      </p>
       <p className="muted" style={{ marginTop: 0, marginBottom: '0.5rem' }}>
         Priced per memory operation — ingest, read, write, query, all count the same.
       </p>

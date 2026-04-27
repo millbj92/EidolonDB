@@ -1,0 +1,46 @@
+---
+title: Concepts
+description: Core ideas behind capability-governed execution.
+---
+
+# Concepts
+
+## Capability
+
+A capability is a named action declared in YAML with:
+
+- input schema
+- executor (HTTP or MCP)
+- output exposure mapping
+- policy and risk configuration
+
+## Actor
+
+Every request runs as an actor identity resolved from API key context (for example `agent:dev` or `human:admin`).
+
+## Policy engine
+
+Before execution, policy evaluates:
+
+- actor allow/deny rules
+- resource allowlists
+- denied phrases
+- environment rules
+- rate limits
+- memory-aware rules (when enabled)
+
+## Approvals
+
+Rules can return `require_approval`, creating an approval request that must be approved before execution.
+
+## Secrets
+
+Secrets resolve after policy allow. Agents never receive raw secret values.
+
+## Audit log
+
+Every request emits structured audit events from request to outcome.
+
+## Risk scoring
+
+Plan and apply include a risk score (0-100) and reasons to support safer automation.

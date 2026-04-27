@@ -1,0 +1,37 @@
+---
+title: Approvals
+description: Human-in-the-loop execution workflow.
+---
+
+# Approvals
+
+## Flow
+
+1. Agent calls `apply`.
+2. Policy returns `require_approval`.
+3. Server stores approval request and returns `approvalId`.
+4. Approver calls approve/reject.
+5. Approved requests execute with frozen original input.
+
+## Approval continuation
+
+```bash
+eidolon capabilities apply github.issue.create \
+  --input '{"repo":"acme/app","title":"Deploy hotfix"}'
+# -> returns approvalId
+
+eidolon approvals approve appr_123
+```
+
+Input is frozen to prevent bait-and-switch.
+
+## Webhooks and notifications
+
+Approval events can be delivered via webhooks and integrated with Slack/Discord notification channels.
+
+## API endpoints
+
+- `GET /v1/approvals`
+- `GET /v1/approvals/:id`
+- `POST /v1/approvals/:id/approve`
+- `POST /v1/approvals/:id/reject`

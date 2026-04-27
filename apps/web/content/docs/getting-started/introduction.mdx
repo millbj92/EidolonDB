@@ -1,0 +1,34 @@
+---
+title: Introduction
+description: Welcome to Eidolon - the control plane for reliable AI agents.
+---
+
+# Introduction
+
+Eidolon is the control plane for reliable AI agents. It gives agents memory, permissions, and governance - so they can act in the real world safely.
+
+## Products
+
+### EidolonDB
+Self-managing memory for AI agents. Three tiers (short_term -> episodic -> semantic), automatic extraction, lifecycle promotion, and hybrid retrieval.
+
+[Get started with EidolonDB ->](/docs/eidolondb/quickstart)
+
+### Eidolon Capabilities
+Declarative agent permission control. "Terraform for AI agent permissions." Define what agents can do, enforce policies, require approvals, audit everything.
+
+[Get started with Capabilities ->](/docs/capabilities/quickstart)
+
+## Architecture
+
+```text
+Your Agent
+    |
+    v
+Eidolon Capabilities  <- permission + policy enforcement
+    |
+    v
+Your Tools / APIs     <- HTTP, MCP, database executors
+
+EidolonDB             <- memory context injected into policy decisions
+```
