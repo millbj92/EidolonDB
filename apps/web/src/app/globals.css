@@ -105,9 +105,17 @@ main,
 }
 
 .nav-dropdown-trigger {
+  background: none;
+  border: none;
+  padding: 0;
   color: var(--muted);
   font-size: 0.95rem;
-  cursor: default;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.nav-dropdown-trigger:hover {
+  color: var(--text);
 }
 
 .nav-dropdown-menu {
@@ -119,14 +127,11 @@ main,
   border-radius: 8px;
   padding: 0.5rem;
   min-width: 180px;
-  z-index: 100;
+  z-index: 200;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  transition: opacity 0.1s ease, visibility 0.1s ease;
 }
-
-/* dropdown open state handled by inline styles in NavDropdown.tsx */
 
 .nav-dropdown-item {
   padding: 0.5rem 0.75rem;
@@ -140,8 +145,7 @@ main,
 }
 
 .nav a:hover,
-.nav a[aria-current='page'],
-.nav-dropdown:hover .nav-dropdown-trigger {
+.nav a[aria-current='page'] {
   color: var(--text);
 }
 
