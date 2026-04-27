@@ -78,13 +78,13 @@ export default async function CapabilitiesOverviewPage() {
             </p>
           </div>
           <div className="row">
-            <Link href="/capabilities/approvals" className="btn">
+            <Link href="/cap/approvals" className="btn">
               Approvals
             </Link>
-            <Link href="/capabilities/audit" className="btn">
+            <Link href="/cap/audit" className="btn">
               Audit
             </Link>
-            <Link href="/capabilities/secrets" className="btn">
+            <Link href="/cap/secrets" className="btn">
               Secrets
             </Link>
           </div>
@@ -135,7 +135,7 @@ export default async function CapabilitiesOverviewPage() {
       <section className="panel">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 style={{ marginTop: 0, marginBottom: '0.8rem' }}>Recent Audit Events</h2>
-          <Link href="/capabilities/audit" className="muted" style={{ fontSize: '0.9rem' }}>
+          <Link href="/cap/audit" className="muted" style={{ fontSize: '0.9rem' }}>
             View all
           </Link>
         </div>
