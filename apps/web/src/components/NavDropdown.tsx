@@ -1,24 +1,35 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 export function NavDropdown() {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  const handleMouseEnter = useCallback(() => setOpen(true), []);
-  const handleMouseLeave = useCallback(() => setOpen(false), []);
+  const handleMouseLeave = useCallback((e: React.MouseEvent) => {
+    // Only close if the mouse is truly leaving the entire dropdown wrapper
+    const related = e.relatedTarget as Node | null;
+    if (ref.current && related && ref.current.contains(related)) return;
+    setOpen(false);
+  }, []);
 
   return (
     <div
+      ref={ref}
       className="nav-dropdown"
-      onMouseEnter={handleMouseEnter}
+      onMouseEnter={() => setOpen(true)}
       onMouseLeave={handleMouseLeave}
     >
-      <span className="nav-dropdown-trigger" aria-haspopup="true" aria-expanded={open}>
-        Products ▾
-      </span>
-      <div className="nav-dropdown-menu" aria-hidden={!open} style={{ pointerEvents: open ? 'auto' : 'none', opacity: open ? 1 : 0, visibility: open ? 'visible' : 'hidden' }}>
+      <span className="nav-dropdown-trigger">Products ▾</span>
+      <div
+        className="nav-dropdown-menu"
+        style={{
+          visibility: open ? 'visible' : 'hidden',
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? 'auto' : 'none',
+        }}
+      >
         <Link href="/eidolondb" className="nav-dropdown-item" onClick={() => setOpen(false)}>
           EidolonDB
         </Link>

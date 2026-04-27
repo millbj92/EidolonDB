@@ -112,7 +112,7 @@ main,
 
 .nav-dropdown-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: 100%;
   left: 0;
   background: var(--surface);
   border: 1px solid var(--border);
