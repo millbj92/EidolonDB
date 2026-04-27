@@ -5,7 +5,7 @@ const links = [
   { href: '/dashboard', label: 'Overview' },
   { href: '/api-keys', label: 'API keys' },
   { href: '/memories', label: 'Memories' },
-  { href: '/capabilities', label: 'Capabilities' },
+  { href: '/cap', label: 'Capabilities' },
   { href: '/billing', label: 'Billing' },
   { href: '/settings', label: 'Settings' },
 ] as const;
