@@ -6,6 +6,7 @@ const isDashboard = createRouteMatcher([
   '/api-keys(.*)',
   '/billing(.*)',
   '/memories(.*)',
+  '/capabilities(.*)',
   '/settings(.*)',
   '/api/dashboard(.*)',
 ]);

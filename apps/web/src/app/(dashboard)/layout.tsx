@@ -5,6 +5,7 @@ const links = [
   { href: '/dashboard', label: 'Overview' },
   { href: '/api-keys', label: 'API keys' },
   { href: '/memories', label: 'Memories' },
+  { href: '/cap', label: 'Capabilities' },
   { href: '/billing', label: 'Billing' },
   { href: '/settings', label: 'Settings' },
 ] as const;
@@ -15,7 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <header className="topbar">
         <div className="container topbar-inner">
           <Link href="/" className="brand">
-            EidolonDB Cloud
+            Eidolon Cloud
           </Link>
           <div className="row">
             <Link className="btn" href="/docs">
