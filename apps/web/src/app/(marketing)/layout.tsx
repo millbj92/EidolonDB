@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { NavAuth } from '@/components/NavAuth';
+import { NavDropdown } from '@/components/NavDropdown';
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,15 +11,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             Eidolon
           </Link>
           <nav className="nav">
-            <div className="nav-dropdown">
-              <span className="nav-dropdown-trigger">Products ▾</span>
-              <div className="nav-dropdown-menu">
-                <div className="nav-dropdown-menu-inner">
-                  <Link href="/eidolondb" className="nav-dropdown-item">EidolonDB</Link>
-                  <Link href="/capabilities" className="nav-dropdown-item">Capabilities</Link>
-                </div>
-              </div>
-            </div>
+            <NavDropdown />
             <Link href="/pricing">Pricing</Link>
             <Link href="/docs/getting-started/introduction">Docs</Link>
             <Link href="/contact">Contact</Link>
