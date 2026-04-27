@@ -91,6 +91,7 @@ main,
 
 .nav {
   display: flex;
+  align-items: stretch;
   gap: 1rem;
   flex-wrap: wrap;
 }
@@ -98,10 +99,14 @@ main,
 .nav a {
   color: var(--muted);
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
 }
 
 .nav-dropdown {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .nav-dropdown-trigger {
