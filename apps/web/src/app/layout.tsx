@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { RootProvider } from 'fumadocs-ui/provider';
 import { JetBrains_Mono, Manrope } from 'next/font/google';
 import './globals.css';
 
@@ -19,16 +20,20 @@ export const metadata: Metadata = {
     'Eidolon is the control plane for reliable AI agents, with memory, permissions, and governance for production workflows.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const publishableKey = process.env['NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY'];
+
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className={`${manrope.variable} ${jetbrains.variable}`}>
-          <div className="bg-orb orb-1" />
-          <div className="bg-orb orb-2" />
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body className={`${manrope.variable} ${jetbrains.variable}`}>
+        <div className="bg-orb orb-1" />
+        <div className="bg-orb orb-2" />
+        <RootProvider>
+          {publishableKey ? <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider> : children}
+        </RootProvider>
+      </body>
+    </html>
   );
 }
