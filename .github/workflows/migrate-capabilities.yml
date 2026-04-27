@@ -1,0 +1,29 @@
+name: Run Capabilities DB Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "migrate" to confirm'
+        required: true
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'migrate'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        working-directory: apps/web
+        run: pnpm install
+      - name: Run migrations
+        working-directory: apps/web
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}

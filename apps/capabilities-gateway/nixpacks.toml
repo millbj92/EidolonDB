@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install -g corepack", "corepack enable", "corepack pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["corepack pnpm build"]
+
+[start]
+cmd = "node dist/index.js"

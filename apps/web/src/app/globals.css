@@ -556,3 +556,28 @@ th {
     font-size: 0.9rem;
   }
 }
+
+.pricing-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.pricing-tab {
+  background: none;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.pricing-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--primary);
+}
